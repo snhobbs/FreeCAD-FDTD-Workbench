@@ -846,8 +846,13 @@ class ExportOpenEMSDialog(QtCore.QObject):
 			item.setText(0, itemNewName)
 
 	def objectAssignmentRightTreeWidgetItemSelectionChanged(self):
-		currItemLabel = self.form.objectAssignmentRightTreeWidget.currentItem().text(0)
-		print(currItemLabel)
+		currItem = self.form.objectAssignmentRightTreeWidget.currentItem()
+		currItemLabel = None
+
+		#check if there is some current item due this function is trigered also during deleting all items in right assignment widget and then cuuItem is None
+		if currItem:
+			currItemLabel = currItem.text(0)
+
 		if (currItemLabel):
 			self.cadHelpers.clearSelection()
 			self.cadHelpers.selectObjectByLabel(currItemLabel)
