@@ -11,6 +11,9 @@ class FreeCADHelpers(CadInterface):
     def __init__(self, APP_DIR=""):
         super(FreeCADHelpers, self).__init__(APP_DIR)
 
+    def documentReady(self):
+        return FreeCAD.ActiveDocument != None
+
     def selectObjectByLabel(self, objLabel):
         freecadObj = FreeCAD.ActiveDocument.getObjectsByLabel(objLabel)
         if (freecadObj):

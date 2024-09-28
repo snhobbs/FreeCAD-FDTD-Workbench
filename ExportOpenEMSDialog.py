@@ -126,6 +126,16 @@ class ExportOpenEMSDialog(QtCore.QObject):
 		self.cadHelpers = FactoryCadInterface.createHelper(self.APP_DIR)
 
 		#
+		# Check if document is available, otherwise exit early.
+		#
+		if not self.cadHelpers.documentReady():
+			msgBox = QtWidgets.QMessageBox()
+			msgBox.setIcon(QtWidgets.QMessageBox.Icon.Critical)
+			msgBox.setText("This macro needs an active document to run. Please open or create one.")
+			msgBox.exec()
+			return
+
+		#
 		# Change current path to script file folder
 		#
 		os.chdir(APP_DIR)
@@ -1354,7 +1364,9 @@ class ExportOpenEMSDialog(QtCore.QObject):
 		return ""
 
 	def show(self):
-		self.form.show()
+		# If form isn't set, there was an initialization error earlier (nothing to show).
+		if hasattr(self, 'form'):
+			self.form.show()
 
 	#
 	#	Button << to assign object from FreeCAD to OpenEMS solver structure

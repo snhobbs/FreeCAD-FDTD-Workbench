@@ -62,6 +62,9 @@ class CadInterface:
     #   CAD SPECIFIC FUNCTIONS
     ###############################################################################################################################
 
+    def documentReady(self):
+        return True
+
     def getOpenEMSObjects(self, filterStr=""):
         currentObjects = self.getObjects()
 
