@@ -39,7 +39,7 @@ class PythonScriptLinesGenerator(OctaveScriptLinesGenerator):
         elif (gridCoordsType == "cylindrical"):
             genScript += "CSX = InitCSX('CoordSystem',1); # Cylindrical coordinate system.\n"
         else:
-            genScript += "%%%%%% ERROR GRID COORDINATION SYSTEM TYPE UNKNOWN"				
+            genScript += "%%%%%% ERROR GRID COORDINATION SYSTEM TYPE UNKNOWN"
         """
         genScript += "FDTD.SetCoordSystem(0) # Cartesian coordinate system.\n"
         genScript += "def mesh():\n"
@@ -688,6 +688,7 @@ class PythonScriptLinesGenerator(OctaveScriptLinesGenerator):
             print("Excitation Settings detected")
             print("#")
             print("#EXCITATION")
+            print('MIERDAAAA')
 
             # FOR WHOLE SIMULATION THERE IS JUST ONE EXCITATION DEFINED, so first is taken!
             if (excitationCategory[0].childCount() > 0):
@@ -736,6 +737,8 @@ class PythonScriptLinesGenerator(OctaveScriptLinesGenerator):
                     genScript += "max_res = 0\n"
                     self.maxGridResolution_m = 0
                     pass
+                elif currSetting.getType() == 'step':
+                    genScript += 'FDTD.SetStepExcite(1)'
                 pass
 
                 genScript += "\n"
