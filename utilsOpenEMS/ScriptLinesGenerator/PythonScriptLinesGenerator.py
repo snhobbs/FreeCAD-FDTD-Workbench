@@ -688,7 +688,6 @@ class PythonScriptLinesGenerator(OctaveScriptLinesGenerator):
             print("Excitation Settings detected")
             print("#")
             print("#EXCITATION")
-            print('MIERDAAAA')
 
             # FOR WHOLE SIMULATION THERE IS JUST ONE EXCITATION DEFINED, so first is taken!
             if (excitationCategory[0].childCount() > 0):
