@@ -10,6 +10,8 @@ import math
 import sys
 import traceback
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 APP_CONTEXT = "None"
 
 try:
@@ -50,7 +52,7 @@ if APP_CONTEXT == 'Blender':
 else:
 	APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 path_to_ui = os.path.join(APP_DIR, "ui", "dialog.ui")
 
 from utilsOpenEMS.SettingsItem.SettingsItem import SettingsItem
