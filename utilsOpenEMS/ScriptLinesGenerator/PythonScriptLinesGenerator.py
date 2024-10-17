@@ -2,7 +2,7 @@
 #
 #
 import os
-from PySide6 import QtGui, QtCore, QtWidgets
+from PySide import QtGui, QtCore, QtWidgets
 import numpy as np
 
 from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _bool, _r

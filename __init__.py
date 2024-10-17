@@ -3,7 +3,7 @@
 #
 
 import bpy
-from PySide6 import QtGui, QtCore, QtWidgets
+from PySide import QtGui, QtCore, QtWidgets
 from .ExportOpenEMSDialog import *
 
 bl_info = {
