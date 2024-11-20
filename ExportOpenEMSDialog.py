@@ -35,7 +35,7 @@ print(f"APP_CONTEXT set to {APP_CONTEXT}")
 APP_DIR = ''
 if APP_CONTEXT == 'Blender':
 	#
-	#	This here is because Blender pyhton is not providing right info about paths in __file__ when running from editor
+	#	This here is because Blender python is not providing right info about paths in __file__ when running from editor
 	#
 	import webbrowser
 
