@@ -761,7 +761,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                         dumpboxName = f"{currSetting.name}_{childName}"
                         genScript += f'dumpboxName = "{dumpboxName}"\n'
 
-                        genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dumnp_type=1, dump_mode=2)\n"
+                        genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=1, dump_mode=2)\n"
                         genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "dumpboxStart", "dumpboxStop")
                         genScript += f"dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop );\n"
                         genDumpBoxCounter += 1
@@ -1633,7 +1633,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, CoordSystem=1)\n"
         else:
             genScript += "CSX = CSXCAD.ContinuousStructure()\n"
-            genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, OverSampling=10)\n"
 
         genScript += "FDTD.SetCSX(CSX)\n"
         genScript += "\n"
@@ -2002,7 +2002,7 @@ show()  #show all figures at once
 filename = 'openEMS_simulation_s11_dB.csv'
 
 with open(filename, 'w', newline='') as csvfile:
-\twriter = csv.writer(csvfile, delimiter=';', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
 \twriter.writerow(['freq (MHz)', 's11 (dB)', 'real Z_in', 'imag Z_in', 'Z_in total'])
 \twriter.writerows(np.array([
 \t\t(freq/1e6),
@@ -2110,10 +2110,10 @@ with open(filename, 'w', newline='') as csvfile:
         genScript += "#\n"
         genScript += "#   Write S11, real and imag Z_in into CSV file separated by ';'\n"
         genScript += "#\n"
-        genScript += "filename = 'openEMS_simulation_s11_dB.csv'\n"
+        genScript += "filename = 'openEMS_simulation_s21_dB.csv'\n"
         genScript += "\n"
         genScript += "with open(filename, 'w', newline='') as csvfile:\n"
-        genScript += "\twriter = csv.writer(csvfile, delimiter=';', quotechar='|', quoting=csv.QUOTE_MINIMAL)\n"
+        genScript += "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)\n"
         genScript += "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])\n"
         genScript += "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it\n"
         genScript += "\n"
