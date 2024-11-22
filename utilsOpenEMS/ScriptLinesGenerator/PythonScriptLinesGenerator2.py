@@ -1403,11 +1403,6 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         print(f"Excitation Settings detected. File: {__file__}")
         print(f"# EXCITATION {currSetting.getName()} {source_type} {currSetting}\n")
 
-        genScript = "#######################################################################################################################################\n"
-        genScript += f"# EXCITATION {currSetting.getName()} {source_type}\n"
-        genScript += f"# {__file__}\n"
-        genScript += "#######################################################################################################################################\n"
-
         # EXCITATION FREQUENCY AND CELL MAXIMUM RESOLUTION CALCULATION (1/20th of minimal lambda - calculated based on maximum simulation frequency)
         # maximum grid resolution is generated into script but NOT USED IN OCTAVE SCRIPT, instead is also calculated here into python variable and used in bounding box correction
 

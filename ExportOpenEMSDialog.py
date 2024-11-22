@@ -63,9 +63,6 @@ from utilsOpenEMS.SettingsItem.SimulationSettingsItem import SimulationSettingsI
 from utilsOpenEMS.SettingsItem.GridSettingsItem import GridSettingsItem
 from utilsOpenEMS.SettingsItem.FreeCADSettingsItem import FreeCADSettingsItem
 
-from utilsOpenEMS.ScriptLinesGenerator.OctaveScriptLinesGenerator import OctaveScriptLinesGenerator
-from utilsOpenEMS.ScriptLinesGenerator.PythonScriptLinesGenerator import PythonScriptLinesGenerator
-
 from utilsOpenEMS.ScriptLinesGenerator.OctaveScriptLinesGenerator2 import OctaveScriptLinesGenerator2	#EXPERIMENTAL JUST FOR DEBUGGING TILL MOVE TO RELEASE
 from utilsOpenEMS.ScriptLinesGenerator.PythonScriptLinesGenerator2 import PythonScriptLinesGenerator2	#EXPERIMENTAL JUST FOR DEBUGGING TILL MOVE TO RELEASE
 
