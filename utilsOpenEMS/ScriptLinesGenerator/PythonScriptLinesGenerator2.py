@@ -15,6 +15,7 @@ from utilsOpenEMS.GuiHelpers.FactoryCadInterface import FactoryCadInterface
 from utilsOpenEMS.ScriptLinesGenerator.CommonScriptLinesGenerator import CommonScriptLinesGenerator
 
 _log = logging.getLogger("freecad-openems")
+cleanup = False
 class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
     #
@@ -1455,15 +1456,15 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             self.maxGridResolution_m = c_ / (f0 * units * 20)
 
         elif (source_type == 'gaussian'):
-            f0 = currSetting.gaussian['f0']
-            fc = currSetting.gaussian['fc']
+            f0 = float(currSetting.gaussian['f0'])
+            fc = float(currSetting.gaussian['fc'])
             genScript += _write_gaussian_values(f0=f0, fc=fc, units=units)
             if not definitionsOnly:
                 genScript += _write_gaussian_function()
             self.maxGridResolution_m = c_ / (f0 * units * 20)
 
         elif (source_type == 'custom'):
-            f0 = currSetting.custom['f0']
+            f0 = float(currSetting.custom['f0'])
             functionStr = currSetting.custom['functionStr']
             genScript += _write_custom_values(f0=f0, units=units)
             if not definitionsOnly:
@@ -1471,14 +1472,14 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             self.maxGridResolution_m = 0
 
         elif (source_type == "step"):
-            fm = currSetting.step['fm']
+            fm = float(currSetting.step['fm'])
             genScript += _write_step_values(fm=fm, units=units)
             if not definitionsOnly:
                 genScript += _write_step_function()
             self.maxGridResolution_m = c_ / (fm * units * 20)
 
         elif (source_type == "dirac"):
-            fm = currSetting.dirac['fm']
+            fm = float(currSetting.dirac['fm'])
             genScript += _write_dirac_values(fm=fm, units=units)
             if not definitionsOnly:
                 genScript += _write_dirac_function()
@@ -1692,7 +1693,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "from CSXCAD import AppCSXCAD_BIN\n"
         genScript += "os.system(AppCSXCAD_BIN + ' \"{}\"'.format(CSX_file))\n"
         genScript += "\n"
-        genScript += "FDTD.Run(Sim_Path, verbose=3, cleanup=True, setup_only=setup_only, debug_pec=debug_pec)\n"
+        genScript += f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)\n"
 
         # Write _OpenEMS.py script file to current directory.
         currDir, nameBase = self.getCurrDir()
