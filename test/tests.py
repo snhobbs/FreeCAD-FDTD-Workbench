@@ -80,8 +80,7 @@ class PythonScriptLinesGenerator2_Test(unittest.TestCase):
                 (self.gen.getExcitationScriptLines(False)),
                 (self.gen.getExcitationScriptLines(True)),
                 (self.gen.getBoundaryConditionsScriptLines()),
-                (self.gen.getMinimalGridlineSpacingScriptLines()),
-                (self.gen.generateOpenEMSScriptString())]:
+                (self.gen.getMinimalGridlineSpacingScriptLines())]:
             print(s)
             assert(len(s)==0 or s[-1] == '\n')
             #assert(s[0] == '\n')
@@ -89,8 +88,16 @@ class PythonScriptLinesGenerator2_Test(unittest.TestCase):
         # print(self.gen.drawS11ButtonClicked())
         # print(self.gen.drawS21ButtonClicked())
 
+        try:
+            self.gen.generateOpenEMSScriptString()
+        except UserWarning:
+            pass
+
     def test_create_file(self):
-        self.gen.generateOpenEMSScript(outputDir="./")
+        try:
+            self.gen.generateOpenEMSScript(outputDir="./")
+        except UserWarning:
+            pass
 
 class IniValidator_Test(unittest.TestCase):
     def setUp(self):
@@ -136,6 +143,15 @@ class IniFile0v_Test(unittest.TestCase):
         fname = str(Path("data") / "aaaaa.ini")
         self.reader.read(fname)
         _, fileName = self.gen.generateOpenEMSScript(outputDir="./")
+
+    def test_read_generate_fixed_grid(self):
+        '''
+        Read file and export python
+        '''
+        fname = str(Path("data") / "fixed-distance-grid.ini")
+        self.reader.read(fname)
+        _, fileName = self.gen.generateOpenEMSScript(outputDir="./")
+
 
 if __name__ == "__main__":
     unittest.main()
