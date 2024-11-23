@@ -2,7 +2,13 @@
 #
 #
 import os
-from PySide import QtGui, QtCore, QtWidgets
+try:
+    import PySide.QtWidgets
+    from PySide import QtGui, QtCore, QtWidgets
+except ImportError:
+    import PySide6.QtWidgets
+    from PySide6 import QtGui, QtCore, QtWidgets
+
 import numpy as np
 import re
 import math
@@ -17,9 +23,10 @@ class CommonScriptLinesGenerator:
     #
     #   constructor, get access to form GUI
     #
-    def __init__(self, form, statusBar = None):
+    def __init__(self, form, guiHelpers):
+        self.guiHelpers = guiHelpers
+        self.statusBar = self.guiHelpers.statusBar
         self.form = form
-        self.statusBar = statusBar
 
         self.internalPortIndexNamesList = {}
         self.internalMaterialIndexNamesList = {}
@@ -28,7 +35,6 @@ class CommonScriptLinesGenerator:
         #
         # GUI helpers function like display message box and so
         #
-        self.guiHelpers = GuiHelpers(self.form, statusBar = self.statusBar)
         self.cadHelpers = FactoryCadInterface.createHelper()
 
     def getUnitLengthFromUI_m(self):

@@ -2,7 +2,11 @@ import os
 import re
 import json
 
-from PySide import QtGui, QtCore, QtWidgets
+try:
+    from PySide import QtGui, QtCore, QtWidgets
+except ImportError:
+    from PySide6 import QtGui, QtCore, QtWidgets
+
 #from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _bool, _r
 
 def _bool(s):

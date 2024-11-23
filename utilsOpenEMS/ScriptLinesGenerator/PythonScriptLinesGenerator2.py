@@ -2,13 +2,17 @@
 #
 #
 import os
-from PySide import QtGui, QtCore, QtWidgets
+try:
+    from PySide import QtGui, QtCore, QtWidgets
+except ImportError:
+    from PySide6 import QtGui, QtCore, QtWidgets
+
+
 import numpy as np
 import re
 import math
 import logging
 from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _bool, _r, _r2
-from utilsOpenEMS.ScriptLinesGenerator.OctaveScriptLinesGenerator2 import OctaveScriptLinesGenerator2
 from utilsOpenEMS.GuiHelpers.GuiHelpers import GuiHelpers
 from utilsOpenEMS.GuiHelpers.FactoryCadInterface import FactoryCadInterface
 
@@ -22,8 +26,8 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
     #
     #   constructor, get access to form GUI
     #
-    def __init__(self, form, statusBar = None):
-        super(PythonScriptLinesGenerator2, self).__init__(form, statusBar)
+    def __init__(self, form, guiHelpers):
+        super(PythonScriptLinesGenerator2, self).__init__(form, guiHelpers)
 
     def getCoordinateSystemScriptLines(self):
         """ # Till now not used, just using rectangular coordination type, cylindrical MUST BE IMPLEMENTED!
@@ -37,9 +41,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         """
 
         return '\n'.join([
-            "#######################################################################################################################################"
-            "# COORDINATE SYSTEM"
-            "#######################################################################################################################################"
+            "#######################################################################################################################################",
+            "# COORDINATE SYSTEM",
+            "#######################################################################################################################################",
             "def mesh():",
             "\tx,y,z",
             "mesh.x = np.array([]) # mesh variable initialization (Note: x y z implies type Cartesian).",
@@ -911,17 +915,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         return genScript
 
     def getOrderedGridDefinitionsScriptLines(self, items):
-        genScript = ""
-        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
-
         if (not items) or (meshPrioritiesCount == 0):
-            return genScript
+            return ""
+
+        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
 
         refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
         refUnitStr = self.form.simParamsDeltaUnitList.currentText()
         sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
 
-        genScript += "#######################################################################################################################################\n"
+        genScript = "#######################################################################################################################################\n"
         genScript += "# GRID LINES\n"
         genScript += "#######################################################################################################################################\n"
         genScript += "\n"
@@ -1172,7 +1175,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     if not axis_settings['enabled']:
                         continue
                     #when top priority lines setting set, remove lines between min and max in ax direction
-                    if gridSettingsInst.topPriorityLines:
+                    if gridSettingsInst.topPriorityLines and mesh_lines and len(mesh_lines) >= 2:
                         string += f"mesh.{axis} = np.delete(mesh.{axis}, np.argwhere((mesh.{axis} >= {_r(mesh_lines[0]):g}) & (mesh.{axis} <= {mesh_lines[1]:g})))\n"
 
                     _ref_unit = str(ref_unit)
@@ -1190,17 +1193,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
 
     def getOrderedGridDefinitionsScriptLines_old_01(self, items):
-        genScript = ""
-        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
-
         if (not items) or (meshPrioritiesCount == 0):
-            return genScript
+            return ""
+
+        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
 
         refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
         refUnitStr = self.form.simParamsDeltaUnitList.currentText()
         sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
 
-        genScript += "#######################################################################################################################################\n"
+        genScript = "#######################################################################################################################################\n"
         genScript += "# GRID LINES\n"
         genScript += "#######################################################################################################################################\n"
         genScript += "\n"

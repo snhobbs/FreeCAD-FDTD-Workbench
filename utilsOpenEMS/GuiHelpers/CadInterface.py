@@ -1,8 +1,12 @@
 import re
 import os
 
-import PySide.QtWidgets
-from PySide import QtGui, QtCore, QtWidgets, QtUiTools
+try:
+    import PySide.QtWidgets
+    from PySide import QtGui, QtCore, QtWidgets, QtUiTools
+except ImportError:
+    import PySide6.QtWidgets
+    from PySide6 import QtGui, QtCore, QtWidgets, QtUiTools
 
 class CadInterface:
     def __init__(self, APP_DIR=""):

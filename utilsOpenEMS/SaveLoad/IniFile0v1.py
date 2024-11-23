@@ -3,7 +3,10 @@ import os
 import re
 import json
 
-from PySide import QtGui, QtCore, QtWidgets
+try:
+    from PySide import QtGui, QtCore, QtWidgets
+except ImportError:
+    from PySide6 import QtGui, QtCore, QtWidgets
 
 from utilsOpenEMS.GuiHelpers.GuiSignals import GuiSignals
 
@@ -334,7 +337,6 @@ class IniFile0v1:
 
         simulationSettings.params['generateJustPreview'] = self.form.generateJustPreviewCheckbox.isChecked()
         simulationSettings.params['generateDebugPEC'] = self.form.generateDebugPECCheckbox.isChecked()
-        simulationSettings.params['mFileExecCommand'] = self.form.octaveExecCommandList.currentText()
         simulationSettings.params['base_length_unit_m'] = self.form.simParamsDeltaUnitList.currentText()
 
         simulationSettings.params['BCxmin'] = self.form.BCxmin.currentText()
@@ -354,9 +356,7 @@ class IniFile0v1:
         simulationSettings.params['min_gridspacing_y'] = self.form.genParamMinGridSpacingY.value()
         simulationSettings.params['min_gridspacing_z'] = self.form.genParamMinGridSpacingZ.value()
 
-        simulationSettings.params['outputScriptType'] = 'octave'
-        if self.form.radioButton_pythonType.isChecked():
-            simulationSettings.params['outputScriptType'] = 'python'
+        simulationSettings.params['outputScriptType'] = 'python'
 
         # write parameters frp, above into JSON
         settings.beginGroup("SIMULATION-" + simulationSettings.name)
@@ -733,8 +733,6 @@ class IniFile0v1:
                 self.form.generateJustPreviewCheckbox.setCheckState(QtCore.Qt.Checked if simulationSettings.params.get('generateJustPreview',False) else QtCore.Qt.Unchecked)
                 self.form.generateDebugPECCheckbox.setCheckState(
                     QtCore.Qt.Checked if simulationSettings.params.get('generateDebugPEC', False) else QtCore.Qt.Unchecked)
-                self.form.octaveExecCommandList.setCurrentText(
-                    simulationSettings.params.get("mFileExecCommand", self.form.octaveExecCommandList.itemData(0)))
                 self.form.simParamsDeltaUnitList.setCurrentText(
                     simulationSettings.params.get("base_length_unit_m", self.form.simParamsDeltaUnitList.itemData(0)))
 
@@ -761,11 +759,6 @@ class IniFile0v1:
                     self.form.genParamMinGridSpacingY.setValue(simulationSettings.params['min_gridspacing_y'])
                     self.form.genParamMinGridSpacingZ.setValue(simulationSettings.params['min_gridspacing_z'])
 
-                    self.form.radioButton_octaveType.setChecked(True)                                                       # by default octave type is checked
-                    self.form.radioButton_octaveType.setChecked(simulationSettings.params['outputScriptType'] == 'octave')
-                    if simulationSettings.params['outputScriptType'] == 'python':
-                        self.form.radioButton_pythonType.setChecked(simulationSettings.params['outputScriptType'] == 'python')
-                        self.form.radioButton_pythonType.clicked.emit()
                 except:
                     pass
 

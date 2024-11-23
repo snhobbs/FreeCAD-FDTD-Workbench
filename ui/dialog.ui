@@ -1219,12 +1219,6 @@ mesh.z = [mesh.z, zmin, (zmin+zmax)/2, zmax];</string>
 #    ymin,ymax
 #    zmin,zmax
 #
-MATLAB/OCTAVE code example:
-mesh.x = [mesh.x, xmin, (xmin+xmax)/2, xmax];
-mesh.y = [mesh.y, ymin, (ymin+ymax)/2, ymax];
-mesh.z = [mesh.z, zmin, (zmin+zmax)/2, zmax];
-
-PYTHON code example:
 mesh.x = np.concatenate((mesh.x, [...array...]))
 mesh.y = np.concatenate((mesh.y, [...array...]))
 mesh.z = np.concatenate((mesh.z, [...array...]))
@@ -6851,74 +6845,6 @@ than min spacing</string>
               </widget>
              </item>
              <item>
-              <widget class="QGroupBox" name="ApplicationsGroupProcessing">
-               <property name="title">
-                <string>External Applications</string>
-               </property>
-               <layout class="QGridLayout" name="gridLayout_14">
-                <item row="0" column="0">
-                 <layout class="QGridLayout" name="gridLayout_12" columnstretch="0,0,0">
-                  <item row="0" column="2">
-                   <widget class="QComboBox" name="octaveExecCommandList">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="minimumSize">
-                     <size>
-                      <width>400</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="editable">
-                     <bool>true</bool>
-                    </property>
-                    <property name="currentText">
-                     <string>octave {opt} &quot;{filename}&quot;</string>
-                    </property>
-                    <property name="currentIndex">
-                     <number>0</number>
-                    </property>
-                    <property name="minimumContentsLength">
-                     <number>0</number>
-                    </property>
-                    <item>
-                     <property name="text">
-                      <string>octave {opt} &quot;{filename}&quot;</string>
-                     </property>
-                    </item>
-                    <item>
-                     <property name="text">
-                      <string>START octave {opt} &quot;{filename}&quot;</string>
-                     </property>
-                    </item>
-                    <item>
-                     <property name="text">
-                      <string>octave --force-gui {opt} &quot;{filename}&quot;</string>
-                     </property>
-                    </item>
-                    <item>
-                     <property name="text">
-                      <string>&quot;{filename}&quot;</string>
-                     </property>
-                    </item>
-                   </widget>
-                  </item>
-                  <item row="0" column="1">
-                   <widget class="QLabel" name="label_49">
-                    <property name="text">
-                     <string>.m file command</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item>
               <widget class="QGroupBox" name="ActionsGroupProcessing">
                <property name="title">
                 <string>Actions</string>
@@ -7820,38 +7746,6 @@ than min spacing</string>
            <property name="text">
             <string>KiCAD PCB Import Tool</string>
            </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="groupBox_OutputFilesType">
-           <property name="minimumSize">
-            <size>
-             <width>200</width>
-             <height>50</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>Output files type</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_13">
-            <item>
-             <widget class="QRadioButton" name="radioButton_octaveType">
-              <property name="text">
-               <string>octave</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QRadioButton" name="radioButton_pythonType">
-              <property name="text">
-               <string>python</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
           </widget>
          </item>
          <item>

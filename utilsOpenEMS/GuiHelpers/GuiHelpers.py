@@ -1,4 +1,9 @@
-from PySide import QtGui, QtCore, QtWidgets
+try:
+    from PySide import QtGui, QtCore, QtWidgets
+except ImportError:
+    from PySide6 import QtGui, QtCore, QtWidgets
+
+
 import re
 import os
 from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _bool, _r
