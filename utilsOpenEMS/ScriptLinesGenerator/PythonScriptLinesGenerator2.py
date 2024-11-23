@@ -1443,6 +1443,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         def _write_step_function():
             return "FDTD.SetStepExcite(fm)\n"
 
+        genScript=""
         if (source_type == 'sinusodial'):
             f0 = currSetting.sinusodial['f0']
             genScript += _write_sinusoid_values(f0, units)
