@@ -44,14 +44,18 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             "#######################################################################################################################################",
             "# COORDINATE SYSTEM",
             "#######################################################################################################################################",
-            "def mesh():",
-            "\tx,y,z",
-            "mesh.x = np.array([]) # mesh variable initialization (Note: x y z implies type Cartesian).",
-            "mesh.y = np.array([])",
-            "mesh.z = np.array([])",
+            "class Mesh:",
+            "\tdef __init__(self, x,y,z):",
+            "\t\tself.x=x",
+            "\t\tself.y=y",
+            "\t\tself.z=z",
+            "",
+            "",
+            "mesh = Mesh(np.array([]), np.array([]), np.array([])) # mesh variable initialization (Note: x y z implies type Cartesian).",
             "",
             "openEMS_grid = CSX.GetGrid()",
-            "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute."
+            "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute.",
+            "",
         ])
 
     def getMaterialDefinitionsScriptLines(self, items, outputDir=None, generateObjects=True):
@@ -915,10 +919,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         return genScript
 
     def getOrderedGridDefinitionsScriptLines(self, items):
+        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
         if (not items) or (meshPrioritiesCount == 0):
             return ""
-
-        meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
 
         refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
         refUnitStr = self.form.simParamsDeltaUnitList.currentText()
@@ -1189,7 +1192,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         return '\n'.join([string,
             "openEMS_grid.AddLine('x', mesh.x)",
             "openEMS_grid.AddLine('y', mesh.y)",
-            "openEMS_grid.AddLine('z', mesh.z)"])
+            "openEMS_grid.AddLine('z', mesh.z)",
+            "",
+            ])
 
 
     def getOrderedGridDefinitionsScriptLines_old_01(self, items):
@@ -1355,7 +1360,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             "",
             "\tarr = np.arange(start, stop, step)",
             "\tif endpoint and arr[-1] + step == stop:",
-            "\t\tarr = np.concatenate([arr, [sto.htmlp]])",
+            "\t\tarr = np.concatenate([arr, [stop]])",
             "\treturn arr",
             "",
             "# Change current path to script file folder",
@@ -1365,7 +1370,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             "os.chdir(dname)",
             "## constants",
             f"unit    = {self.getUnitLengthFromUI_m()} # Model coordinates and lengths will be specified in {self.form.simParamsDeltaUnitList.currentText()}."
-            f"fc_unit = {self.getFreeCADUnitLength_m()} # STL files are exported in FreeCAD standard units (mm)."])
+            f"fc_unit = {self.getFreeCADUnitLength_m()} # STL files are exported in FreeCAD standard units (mm).",
+            ""
+        ])
 
     def getExcitationScriptLines(self, definitionsOnly=False):
         excitationCategory = self.form.objectAssignmentRightTreeWidget.findItems("Excitation", QtCore.Qt.MatchFixedString)
@@ -1538,7 +1545,8 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             "openEMS_grid.AddLine('x', mesh.x)",
             "openEMS_grid.AddLine('y', mesh.y)",
             "openEMS_grid.AddLine('z', mesh.z)",
-            ''])
+            ""
+        ])
 
     #########################################################################################################################
     #                                  _                       _       _          _ _      _            _
@@ -1552,18 +1560,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
     #
     #	GENERATE SCRIPT CLICKED - go through object assignment tree categories, output child item data.
     #
-    def generateOpenEMSScript(self, outputDir=None):
-
-        # Create outputDir relative to local FreeCAD file if output dir does not exists
-        #   if outputDir is set to same value
-        #   if outputStr is None then folder with name as FreeCAD file with suffix _openEMS_simulation is created
-        outputDir = self.createOuputDir(outputDir)
-
-        # Update status bar to inform user that exporting has begun.
-        if self.statusBar is not None:
-            self.statusBar.showMessage("Generating OpenEMS script and geometry files ...", 5000)
-            QtWidgets.QApplication.processEvents()
-
+    def generateOpenEMSScriptString(self):
         # Constants and variable initialization.
 
         refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
@@ -1636,7 +1633,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += self.getExcitationScriptLines()
 
         # Write material definitions.
-        genScript += self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir)
+        genScript += self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir=None, generateObjects=False)
 
         # Write grid definitions.
         genScript += self.getOrderedGridDefinitionsScriptLines(itemsByClassName.get("GridSettingsItem", None))
@@ -1672,27 +1669,45 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             "from CSXCAD import AppCSXCAD_BIN",
             "os.system(AppCSXCAD_BIN + str(CSX_file))",
             "",
-            f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)"
+            f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)",
+            ""
         ])
 
+        return genScript
+
+
+    def generateOpenEMSScript(self, outputDir=None):
         # Write _OpenEMS.py script file to current directory.
+        outputDir = self.createOuputDir(outputDir)
+
+        # Create outputDir relative to local FreeCAD file if output dir does not exists
+        #   if outputDir is set to same value
+        #   if outputStr is None then folder with name as FreeCAD file with suffix _openEMS_simulation is created
+        # Update status bar to inform user that exporting has begun.
+        if self.statusBar is not None:
+            self.statusBar.showMessage("Generating OpenEMS script and geometry files ...", 5000)
+            QtWidgets.QApplication.processEvents()
+
+
         currDir, nameBase = self.getCurrDir()
 
-        if (not outputDir is None):
-            fileName = f"{outputDir}/{nameBase}_openEMS.py"
-        else:
-            fileName = f"{currDir}/{nameBase}_openEMS.py"
+        if outputDir is None:
+            outputDir = currDir
 
-        f = open(fileName, "w", encoding='utf-8')
-        f.write(genScript)
-        f.close()
+        fileName = f"{outputDir}/{nameBase}_openEMS.py"
+
+        with open(fileName, "w", encoding='utf-8') as f:
+            f.write(self.generateOpenEMSScriptString())
+
+        itemsByClassName = self.getItemsByClassName()
+        self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir=outputDir, generateObjects=True)
+
 
         # Show message or update status bar to inform user that exporting has finished.
 
         self.guiHelpers.displayMessage('Simulation script written to: ' + fileName, forceModal=True)
         print('Simulation script written to: ' + fileName)
-
-        return
+        return outputDir, fileName
 
     #
     #	Write NF2FF Button clicked, generate script to display far field pattern
@@ -2100,7 +2115,8 @@ with open(filename, 'w', newline='') as csvfile:
             "with open(filename, 'w', newline='') as csvfile:",
             "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)",
             "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])",
-            "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it"
+            "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it",
+            ""
         ])
 
         # Write OpenEMS Script file into current dir.
