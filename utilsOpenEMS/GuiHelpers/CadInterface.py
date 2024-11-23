@@ -21,16 +21,8 @@ class CadInterface:
         except ImportError:
             print("No FreeCAD interface available.")
 
-        try:
-            import bpy
-            self.type = "Blender"
-        except ImportError:
-            print("No Blender interface available.")
-
         if self.type == "None":
-            print("No available FreeCAD or Blender interface found using default dummy one, PROGRAM WILL RUN DOING NOTHING.")
-            #raise Exception("No available FreeCAD or Blender interface found.")
-
+            print("No available FreeCAD interface found using default dummy one, PROGRAM WILL RUN DOING NOTHING.")
         return
 
     def getIconByCategory(self, categoryName):
