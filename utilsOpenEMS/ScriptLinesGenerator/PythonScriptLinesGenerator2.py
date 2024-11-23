@@ -16,6 +16,7 @@ from utilsOpenEMS.ScriptLinesGenerator.CommonScriptLinesGenerator import CommonS
 
 _log = logging.getLogger("freecad-openems")
 cleanup = False
+
 class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
     #
@@ -25,12 +26,6 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         super(PythonScriptLinesGenerator2, self).__init__(form, statusBar)
 
     def getCoordinateSystemScriptLines(self):
-        genScript = ""
-
-        genScript += "#######################################################################################################################################\n"
-        genScript += "# COORDINATE SYSTEM\n"
-        genScript += "#######################################################################################################################################\n"
-
         """ # Till now not used, just using rectangular coordination type, cylindrical MUST BE IMPLEMENTED!
         gridCoordsType = self.getModelCoordsType()
         if (gridCoordsType == "rectangular"):
@@ -41,18 +36,19 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             genScript += "%%%%%% ERROR GRID COORDINATION SYSTEM TYPE UNKNOWN"
         """
 
-        genScript += "def mesh():\n"
-        genScript += "\tx,y,z\n"
-        genScript += "\n"
-        genScript += "mesh.x = np.array([]) # mesh variable initialization (Note: x y z implies type Cartesian).\n"
-        genScript += "mesh.y = np.array([])\n"
-        genScript += "mesh.z = np.array([])\n"
-        genScript += "\n"
-        genScript += "openEMS_grid = CSX.GetGrid()\n"
-        genScript += "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute.\n"
-        genScript += "\n"
-
-        return genScript
+        return '\n'.join([
+            "#######################################################################################################################################"
+            "# COORDINATE SYSTEM"
+            "#######################################################################################################################################"
+            "def mesh():",
+            "\tx,y,z",
+            "mesh.x = np.array([]) # mesh variable initialization (Note: x y z implies type Cartesian).",
+            "mesh.y = np.array([])",
+            "mesh.z = np.array([])",
+            "",
+            "openEMS_grid = CSX.GetGrid()",
+            "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute."
+        ])
 
     def getMaterialDefinitionsScriptLines(self, items, outputDir=None, generateObjects=True):
         genScript = ""
@@ -1059,6 +1055,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             #
 
             #in case of cylindrical coordinates convert xyz to theta,r,z
+            yParam = None
             if (gridSettingsInst.coordsType == "cylindrical"):
                 #FROM GUI ARE GOING DEGREES
 
@@ -1075,7 +1072,6 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     pass  # user defined is jaust text, doesn't have ['y']
                 else:
                     yParam = gridSettingsInst.getXYZ(refUnit)['y']
-
                 #z coordinate stays as was
 
             else:
@@ -1126,15 +1122,12 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                         genScript += "mesh.z = np.append(mesh.z, {0:g})\n".format(_r((zmin + zmax) / 2))
 
             elif (gridSettingsInst.getType() == 'User Defined'):
-                if gridSettingsInst.xenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
-                if gridSettingsInst.yenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
-                if gridSettingsInst.zenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
+                if gridSettingsInst.xenabled and gridSettingsInst.topPriorityLines:
+                    genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
+                if gridSettingsInst.yenabled and gridSettingsInst.topPriorityLines:
+                    genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
+                if gridSettingsInst.zenabled and gridSettingsInst.topPriorityLines:
+                    genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
 
                 genScript += "xmin = {0:g}\n".format(_r(xmin))
                 genScript += "xmax = {0:g}\n".format(_r(xmax))
@@ -1145,52 +1138,56 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 genScript += gridSettingsInst.getXYZ() + "\n"
 
             elif (gridSettingsInst.getType() == 'Smooth Mesh'):
-                genScript += "smoothMesh = {}\n"
-                if gridSettingsInst.xenabled:
+                string = "smoothMesh = {}\n"
 
+                axes_smooth_settings = {
+                    'x': {
+                        'axis': 'x',
+                        'enabled': gridSettingsInst.xenabled,
+                        'max_res': gridSettingsInst.smoothMesh['xMaxRes'],
+                        'mesh_lines': xList,
+                        'ref_unit': yParam,
+                    },
+                    'y': {
+                        'axis': 'y',
+                        'enabled': gridSettingsInst.yenabled,
+                        'max_res': gridSettingsInst.smoothMesh['yMaxRes'],
+                        'mesh_lines': yList,
+                        'ref_unit': yParam,
+                    },
+                    'z': {
+                        'axis': 'z',
+                        'enabled': gridSettingsInst.zenabled,
+                        'max_res': gridSettingsInst.smoothMesh['zMaxRes'],
+                        'mesh_lines': zList,
+                        'ref_unit': yParam,
+                    },
+                }
+
+                for axis_settings in axes_smooth_settings.values():
+                    axis = axis_settings['axis']
+                    mesh_lines = axis_settings['mesh_lines']
+                    ref_unit = axis_settings['ref_unit']
+
+                    if not axis_settings['enabled']:
+                        continue
                     #when top priority lines setting set, remove lines between min and max in ax direction
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xList[0]), _r(xList[-1]))
+                        string += f"mesh.{axis} = np.delete(mesh.{axis}, np.argwhere((mesh.{axis} >= {_r(mesh_lines[0]):g}) & (mesh.{axis} <= {mesh_lines[1]:g})))\n"
 
-                    genScript += f"smoothMesh.x = {str(xList)};\n"
-                    if gridSettingsInst.smoothMesh['xMaxRes'] == 0:
-                        genScript += "smoothMesh.x = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.x, max_res/unit) #max_res calculated in excitation part\n"
-                    else:
-                        genScript += f"smoothMesh.x = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.x, {gridSettingsInst.smoothMesh['xMaxRes']})\n"
-                    genScript += "mesh.x = np.concatenate((mesh.x, smoothMesh.x))\n"
-                if gridSettingsInst.yenabled:
+                    _ref_unit = str(ref_unit)
+                    if axis_settings["max_res"]== 0:
+                        # Use the excitation resolution
+                        string += "# max_res calculated in excitation part\n"
+                        _ref_unit = "mas_ref/unit"
+                    string += f"smoothMesh['{axis}'] = CSXCAD.SmoothMeshLines.SmoothMeshLines({mesh_lines}, {_ref_unit})\n"
+                    string += f"mesh.{axis} = np.concatenate((mesh.{axis}, smoothMesh['{axis}']))\n"
 
-                    #when top priority lines setting set, remove lines between min and max in ax direction
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(yList[0]), _r(yList[-1]))
+        return '\n'.join([string,
+            "openEMS_grid.AddLine('x', mesh.x)",
+            "openEMS_grid.AddLine('y', mesh.y)",
+            "openEMS_grid.AddLine('z', mesh.z)"])
 
-                    genScript += f"smoothMesh.y = {str(yList)};\n"
-                    if gridSettingsInst.smoothMesh['yMaxRes'] == 0:
-                        genScript += "smoothMesh.y = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.y, max_res/unit) #max_res calculated in excitation part\n"
-                    else:
-                        genScript += f"smoothMesh.y = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.y, {yParam})\n"
-                    genScript += "mesh.y = np.concatenate((mesh.y, smoothMesh.y))\n"
-                if gridSettingsInst.zenabled:
-
-                    #when top priority lines setting set, remove lines between min and max in ax direction
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zList[0]), _r(zList[-1]))
-
-                    genScript += f"smoothMesh.z = {str(zList)};\n"
-                    if gridSettingsInst.smoothMesh['zMaxRes'] == 0:
-                        genScript += "smoothMesh.z = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.z, max_res/unit) #max_res calculated in excitation part\n"
-                    else:
-                        genScript += f"smoothMesh.z = CSXCAD.SmoothMeshLines.SmoothMeshLines(smoothMesh.z, {gridSettingsInst.smoothMesh['zMaxRes']})\n"
-                    genScript += "mesh.z = np.concatenate((mesh.z, smoothMesh.z))\n"
-
-            genScript += "\n"
-
-        genScript += "openEMS_grid.AddLine('x', mesh.x)\n"
-        genScript += "openEMS_grid.AddLine('y', mesh.y)\n"
-        genScript += "openEMS_grid.AddLine('z', mesh.z)\n"
-        genScript += "\n"
-
-        return genScript
 
     def getOrderedGridDefinitionsScriptLines_old_01(self, items):
         genScript = ""
@@ -1257,60 +1254,56 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             delta = 0
             debugHardLimit = 0.1e-3  # debug hard limit to get gridlines inside STL objects
 
-            xmax = sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * delta - debugHardLimit
-            ymax = sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * delta - debugHardLimit
-            zmax = sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta - debugHardLimit
-            xmin = sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * delta + debugHardLimit
-            ymin = sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * delta + debugHardLimit
-            zmin = sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta + debugHardLimit
-
             # Write grid definition.
-
             genScript += "## GRID - " + gridSettingsInst.getName() + " - " + FreeCADObjectName + ' (' + gridSettingsInst.getType() + ")\n"
 
-            if (gridSettingsInst.getType() == 'Fixed Distance'):
-                if gridSettingsInst.xenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
-                    genScript += "mesh.x = np.concatenate((mesh.x, np.arange({0:g},{1:g},{2:g})))\n".format(_r(xmin), _r(xmax), _r(gridSettingsInst.getXYZ(refUnit)['x']))
-                if gridSettingsInst.yenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
-                    genScript += "mesh.y = np.concatenate((mesh.y, np.arange({0:g},{1:g},{2:g})))\n".format(_r(ymin),_r(ymax),_r(gridSettingsInst.getXYZ(refUnit)['y']))
-                if gridSettingsInst.zenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
-                    genScript += "mesh.z = np.concatenate((mesh.z, np.arange({0:g},{1:g},{2:g})))\n".format(_r(zmin),_r(zmax),_r(gridSettingsInst.getXYZ(refUnit)['z']))
+            axes_grid_settings = {
+                'x': {
+                    "axis": "x",
+                    "enabled": gridSettingsInst.xenabled,
+                    "min": sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * delta + debugHardLimit,
+                    "max": sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * delta - debugHardLimit,
+                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['x'],
+                },
+                'y': {
+                    "axis": "y",
+                    "enabled": gridSettingsInst.yenabled,
+                    "min": sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * delta + debugHardLimit,
+                    "max": sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * delta - debugHardLimit,
+                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['y'],
+                },
+                'z': {
+                    "axis": "z",
+                    "enabled": gridSettingsInst.zenabled,
+                    "min": sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta + debugHardLimit,
+                    "max": sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta - debugHardLimit,
+                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['z'],
+                }
+            }
 
-            elif (gridSettingsInst.getType() == 'Fixed Count'):
-                if gridSettingsInst.xenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
-                    if (not gridSettingsInst.getXYZ()['x'] == 1):
-                        genScript += "mesh.x = np.concatenate((mesh.x, linspace({0:g},{1:g},{2:g})))\n".format(_r(xmin), _r(xmax), _r(gridSettingsInst.getXYZ(refUnit)['x']))
+            for axis_grid_setting in axes_grid_settings.values():
+                vmin = axis_grid_setting["min"]
+                vmax = axis_grid_setting["max"]
+                axis = axis_grid_setting["axis"]
+                ref_unit = axis_grid_setting["ref_unit"]
+
+                if not axis_grid_setting["enabled"]:
+                    continue
+
+                if gridSettingsInst.topPriorityLines:
+                    genScript += f"mesh.{axis} = np.delete(mesh.{axis}, np.argwhere((mesh.{axis} >= {_r(vmin):g}) & (mesh.x <= {_r(vmax):g})))\n"
+
+                if (gridSettingsInst.getType() == 'Fixed Distance'):
+                    genScript += "mesh.{axis} = np.concatenate((mesh.{axis}, np.arange({_r(vmin):g},{_r(vmax}:g},{_r(ref_unit):g})))\n"
+
+                elif (gridSettingsInst.getType() == 'Fixed Count'):
+                    if (not gridSettingsInst.getXYZ()[{axis}] == 1):
+                        genScript += f"mesh.{axis} = np.concatenate((mesh.{axis}, linspace({_r(vmin):g},{_r(vmax):g},{_r(ref_unit):g})))\n"
                     else:
-                        genScript += "mesh.x = np.append(mesh.x, {0:g})\n".format(_r((xmin + xmax) / 2))
+                        genScript += "mesh.{axis} = np.append(mesh.{axis}, {_r((xmin + xmax) / 2):g})\n"
 
-                if gridSettingsInst.yenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
-                    if (not gridSettingsInst.getXYZ()['y'] == 1):
-                        genScript += "mesh.y = np.concatenate((mesh.y, linspace({0:g},{1:g},{2:g})))\n".format(_r(ymin), _r(ymax), _r(
-                            gridSettingsInst.getXYZ(refUnit)['y']))
-                    else:
-                        genScript += "mesh.y = np.append(mesh.y, {0:g})\n".format(_r((ymin + ymax) / 2))
-
-                if gridSettingsInst.zenabled:
-                    if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
-                    if (not gridSettingsInst.getXYZ()['z'] == 1):
-                        genScript += "mesh.z = np.concatenate((mesh.z, linspace({0:g},{1:g},{2:g})))\n".format(_r(zmin), _r(zmax), _r(
-                            gridSettingsInst.getXYZ(refUnit)['z']))
-                    else:
-                        genScript += "mesh.z = np.append(mesh.z, {0:g})\n".format(_r((zmin + zmax) / 2))
-
-            elif (gridSettingsInst.getType() == 'User Defined'):
-                genScript += "mesh = " + gridSettingsInst.getXYZ() + ";\n"
+                elif (gridSettingsInst.getType() == 'User Defined'):
+                    genScript += "mesh = " + gridSettingsInst.getXYZ() + "\n"
 
             genScript += "\n"
 
@@ -1323,63 +1316,54 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
 
     def getInitScriptLines(self):
-        genScript = ""
-        genScript += "# To be run with python.\n"
-        genScript += "# FreeCAD to OpenEMS plugin by Lubomir Jagos, \n"
-        genScript += "# see https://github.com/LubomirJagos/FreeCAD-OpenEMS-Export\n"
-        genScript += "#\n"
-        genScript += "# This file has been automatically generated. Manual changes may be overwritten.\n"
-        genScript += "#\n"
-        genScript += "### Import Libraries\n"
-        genScript += "import math\n"
-        genScript += "import numpy as np\n"
-        genScript += "import os, tempfile, shutil\n"
-        genScript += "from pylab import *\n"
-        genScript += "import csv\n"
-        genScript += "import CSXCAD\n"
-        genScript += "from openEMS import openEMS\n"
-        genScript += "from openEMS.physical_constants import *\n"
-        genScript += "\n"
-
-        genScript += "#\n"
-        genScript += "# FUNCTION TO CONVERT CARTESIAN TO CYLINDRICAL COORDINATES\n"
-        genScript += "#     returns coordinates in order [theta, r, z]\n"
-        genScript += "#\n"
-        genScript += "def cart2pol(pointCoords):\n"
-        genScript += "\ttheta = np.arctan2(pointCoords[1], pointCoords[0])\n"
-        genScript += "\tr = np.sqrt(pointCoords[0] ** 2 + pointCoords[1] ** 2)\n"
-        genScript += "\tz = pointCoords[2]\n"
-        genScript += "\treturn theta, r, z\n"
-        genScript += "\n"
-
-        genScript += "#\n"
-        genScript += "# FUNCTION TO GIVE RANGE WITH ENDPOINT INCLUDED arangeWithEndpoint(0,10,2.5) = [0, 2.5, 5, 7.5, 10]\n"
-        genScript += "#     returns coordinates in order [theta, r, z]\n"
-        genScript += "#\n"
-        genScript += "def arangeWithEndpoint(start, stop, step=1, endpoint=True):\n"
-        genScript += "\tif start == stop:\n"
-        genScript += "\t\treturn [start]\n"
-        genScript += "\n"
-        genScript += "\tarr = np.arange(start, stop, step)\n"
-        genScript += "\tif endpoint and arr[-1] + step == stop:\n"
-        genScript += "\t\tarr = np.concatenate([arr, [stop]])\n"
-        genScript += "\treturn arr\n"
-        genScript += "\n"
-
-        genScript += "# Change current path to script file folder\n"
-        genScript += "#\n"
-        genScript += "abspath = os.path.abspath(__file__)\n"
-        genScript += "dname = os.path.dirname(abspath)\n"
-        genScript += "os.chdir(dname)\n"
-
-        genScript += "## constants\n"
-        genScript += "unit    = " + str(
-            self.getUnitLengthFromUI_m()) + " # Model coordinates and lengths will be specified in " + self.form.simParamsDeltaUnitList.currentText() + ".\n"
-        genScript += "fc_unit = " + str(
-            self.getFreeCADUnitLength_m()) + " # STL files are exported in FreeCAD standard units (mm).\n"
-        genScript += "\n"
-
-        return genScript
+        return '\n'.join([
+            "# To be run with python.",
+            "# FreeCAD to OpenEMS plugin by Lubomir Jagos, ",
+            "# see https://github.com/LubomirJagos/FreeCAD-OpenEMS-Export",
+            "#",
+            "# This file has been automatically generated. Manual changes may be overwritten.",
+            "#",
+            "### Import Libraries",
+            "import math",
+            "import numpy as np",
+            "import os, tempfile, shutil",
+            "from pylab import *",
+            "import csv",
+            "import CSXCAD",
+            "from openEMS import openEMS",
+            "from openEMS.physical_constants import *",
+            "",
+            "#",
+            "# FUNCTION TO CONVERT CARTESIAN TO CYLINDRICAL COORDINATES",
+            "#     returns coordinates in order [theta, r, z]",
+            "#",
+            "def cart2pol(pointCoords):",
+            "\ttheta = np.arctan2(pointCoords[1], pointCoords[0])",
+            "\tr = np.sqrt(pointCoords[0] ** 2 + pointCoords[1] ** 2)",
+            "\tz = pointCoords[2]",
+            "\treturn theta, r, z",
+            "",
+            "#",
+            "# FUNCTION TO GIVE RANGE WITH ENDPOINT INCLUDED arangeWithEndpoint(0,10,2.5) = [0, 2.5, 5, 7.5, 10]",
+            "#     returns coordinates in order [theta, r, z]",
+            "#",
+            "def arangeWithEndpoint(start, stop, step=1, endpoint=True):",
+            "\tif start == stop:",
+            "\t\treturn [start]",
+            "",
+            "\tarr = np.arange(start, stop, step)",
+            "\tif endpoint and arr[-1] + step == stop:",
+            "\t\tarr = np.concatenate([arr, [sto.htmlp]])",
+            "\treturn arr",
+            "",
+            "# Change current path to script file folder",
+            "#",
+            "abspath = os.path.abspath(__file__)",
+            "dname = os.path.dirname(abspath)",
+            "os.chdir(dname)",
+            "## constants",
+            f"unit    = {self.getUnitLengthFromUI_m()} # Model coordinates and lengths will be specified in {self.form.simParamsDeltaUnitList.currentText()}."
+            f"fc_unit = {self.getFreeCADUnitLength_m()} # STL files are exported in FreeCAD standard units (mm)."])
 
     def getExcitationScriptLines(self, definitionsOnly=False):
         excitationCategory = self.form.objectAssignmentRightTreeWidget.findItems("Excitation", QtCore.Qt.MatchFixedString)
@@ -1424,8 +1408,8 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         def _write_gaussian_function():
             return "FDTD.SetGaussExcite(f0, fc)\n"
 
-        def _write_custom_values(f0, fc, units):
-            return f"f0 = {f0}*{units}\nfc = {fc}*{units}\nmax_res = 0\n"
+        def _write_custom_values(f0, units):
+            return f"f0 = {f0}*{units}\nmax_res = 0\n"
 
         def _write_custom_function(f0, units, function):
             func_str = function.replace('f0', float(f0)*float(units))
@@ -1511,51 +1495,48 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         return genScript
 
     def getMinimalGridlineSpacingScriptLines(self):
-        genScript = ""
+        if not self.form.genParamMinGridSpacingEnable.isChecked():
+            return ""
 
-        if (self.form.genParamMinGridSpacingEnable.isChecked()):
-            minSpacingX = self.form.genParamMinGridSpacingX.value() / 1000 / self.getUnitLengthFromUI_m()
-            minSpacingY = self.form.genParamMinGridSpacingY.value() / 1000 / self.getUnitLengthFromUI_m()
-            minSpacingZ = self.form.genParamMinGridSpacingZ.value() / 1000 / self.getUnitLengthFromUI_m()
+        minSpacingX = self.form.genParamMinGridSpacingX.value() / 1000 / self.getUnitLengthFromUI_m()
+        minSpacingY = self.form.genParamMinGridSpacingY.value() / 1000 / self.getUnitLengthFromUI_m()
+        minSpacingZ = self.form.genParamMinGridSpacingZ.value() / 1000 / self.getUnitLengthFromUI_m()
 
-            genScript += "#######################################################################################################################################\n"
-            genScript += "# MINIMAL GRIDLINES SPACING, removing gridlines which are closer as defined in GUI\n"
-            genScript += "#######################################################################################################################################\n"
-            genScript += 'mesh.x = openEMS_grid.GetLines("x", True)\n'
-            genScript += 'mesh.y = openEMS_grid.GetLines("y", True)\n'
-            genScript += 'mesh.z = openEMS_grid.GetLines("z", True)\n'
-            genScript += '\n'
-            genScript += 'openEMS_grid.ClearLines("x")\n'
-            genScript += 'openEMS_grid.ClearLines("y")\n'
-            genScript += 'openEMS_grid.ClearLines("z")\n'
-            genScript += '\n'
-            genScript += 'for k in range(len(mesh.x)-1):\n'
-            genScript += '\tif (not np.isinf(mesh.x[k]) and abs(mesh.x[k+1]-mesh.x[k]) <= ' + str(minSpacingX) + '):\n'
-            genScript += '\t\tprint("Removnig line at x: " + str(mesh.x[k+1]))\n'
-            genScript += '\t\tmesh.x[k+1] = np.inf\n'
-            genScript += '\n'
-            genScript += 'for k in range(len(mesh.y)-1):\n'
-            genScript += '\tif (not np.isinf(mesh.y[k]) and abs(mesh.y[k+1]-mesh.y[k]) <= ' + str(minSpacingY) + '):\n'
-            genScript += '\t\tprint("Removnig line at y: " + str(mesh.y[k+1]))\n'
-            genScript += '\t\tmesh.y[k+1] = np.inf\n'
-            genScript += '\n'
-            genScript += 'for k in range(len(mesh.z)-1):\n'
-            genScript += '\tif (not np.isinf(mesh.z[k]) and abs(mesh.z[k+1]-mesh.z[k]) <= ' + str(minSpacingZ) + '):\n'
-            genScript += '\t\tprint("Removnig line at z: " + str(mesh.z[k+1]))\n'
-            genScript += '\t\tmesh.z[k+1] = np.inf\n'
-            genScript += '\n'
-
-            genScript += 'mesh.x = mesh.x[~np.isinf(mesh.x)]\n'
-            genScript += 'mesh.y = mesh.y[~np.isinf(mesh.y)]\n'
-            genScript += 'mesh.z = mesh.z[~np.isinf(mesh.z)]\n'
-            genScript += '\n'
-
-            genScript += "openEMS_grid.AddLine('x', mesh.x)\n"
-            genScript += "openEMS_grid.AddLine('y', mesh.y)\n"
-            genScript += "openEMS_grid.AddLine('z', mesh.z)\n"
-            genScript += '\n'
-
-        return genScript
+        return '\n'.join([
+            "#######################################################################################################################################",
+            "# MINIMAL GRIDLINES SPACING, removing gridlines which are closer as defined in GUI",
+            "#######################################################################################################################################",
+            'mesh.x = openEMS_grid.GetLines("x", True)',
+            'mesh.y = openEMS_grid.GetLines("y", True)',
+            'mesh.z = openEMS_grid.GetLines("z", True)',
+            '',
+            'openEMS_grid.ClearLines("x")',
+            'openEMS_grid.ClearLines("y")',
+            'openEMS_grid.ClearLines("z")',
+            '',
+            'for k in range(len(mesh.x)-1):',
+            '\tif (not np.isinf(mesh.x[k]) and abs(mesh.x[k+1]-mesh.x[k]) <= ' + str(minSpacingX) + '):',
+            '\t\tprint("Removnig line at x: " + str(mesh.x[k+1]))',
+            '\t\tmesh.x[k+1] = np.inf',
+            '',
+            'for k in range(len(mesh.y)-1):',
+            '\tif (not np.isinf(mesh.y[k]) and abs(mesh.y[k+1]-mesh.y[k]) <= ' + str(minSpacingY) + '):',
+            '\t\tprint("Removnig line at y: " + str(mesh.y[k+1]))',
+            '\t\tmesh.y[k+1] = np.inf',
+            '',
+            'for k in range(len(mesh.z)-1):',
+            '\tif (not np.isinf(mesh.z[k]) and abs(mesh.z[k+1]-mesh.z[k]) <= ' + str(minSpacingZ) + '):',
+            '\t\tprint("Removnig line at z: " + str(mesh.z[k+1]))',
+            '\t\tmesh.z[k+1] = np.inf',
+            '',
+            'mesh.x = mesh.x[~np.isinf(mesh.x)]',
+            'mesh.y = mesh.y[~np.isinf(mesh.y)]',
+            'mesh.z = mesh.z[~np.isinf(mesh.z)]',
+            '',
+            "openEMS_grid.AddLine('x', mesh.x)",
+            "openEMS_grid.AddLine('y', mesh.y)",
+            "openEMS_grid.AddLine('z', mesh.z)",
+            ''])
 
     #########################################################################################################################
     #                                  _                       _       _          _ _      _            _
@@ -1677,19 +1658,20 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         # Finalize script.
 
-        genScript += "#######################################################################################################################################\n"
-        genScript += "# RUN\n"
-        genScript += "#######################################################################################################################################\n"
-
-        genScript += "### Run the simulation\n"
-        genScript += "CSX_file = os.path.join(Sim_Path, Sim_CSX)\n"
-        genScript += "if not os.path.exists(Sim_Path):\n"
-        genScript += "\tos.mkdir(Sim_Path)\n"
-        genScript += "CSX.Write2XML(CSX_file)\n"
-        genScript += "from CSXCAD import AppCSXCAD_BIN\n"
-        genScript += "os.system(AppCSXCAD_BIN + ' \"{}\"'.format(CSX_file))\n"
-        genScript += "\n"
-        genScript += f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)\n"
+        genScript += '\n'.join([
+            "#######################################################################################################################################",
+            "# RUN",
+            "#######################################################################################################################################",
+            "### Run the simulation",
+            "CSX_file = os.path.join(Sim_Path, Sim_CSX)",
+            "if not os.path.exists(Sim_Path):",
+            "\tos.mkdir(Sim_Path)",
+            "CSX.Write2XML(CSX_file)",
+            "from CSXCAD import AppCSXCAD_BIN",
+            "os.system(AppCSXCAD_BIN + str(CSX_file))",
+            "",
+            f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)"
+        ])
 
         # Write _OpenEMS.py script file to current directory.
         currDir, nameBase = self.getCurrDir()
@@ -2079,45 +2061,45 @@ with open(filename, 'w', newline='') as csvfile:
         genScript += self.getPortDefinitionsScriptLines(itemsByClassName.get("PortSettingsItem", None))
 
         # Post-processing and plot generation.
-        genScript += "#######################################################################################################################################\n"
-        genScript += "# POST-PROCESSING AND PLOT GENERATION\n"
-        genScript += "#######################################################################################################################################\n"
-        genScript += "\n"
-        genScript += "freq = np.linspace(max(1e6, f0 - fc), f0 + fc, 501)\n"
-        genScript += f"port[{self.internalPortIndexNamesList[sourcePortName]}].CalcPort(Sim_Path, freq)\n"
-        genScript += f"port[{self.internalPortIndexNamesList[targetPortName]}].CalcPort(Sim_Path, freq)\n"
-        genScript += "\n"
-        genScript += f"s11 = port[{self.internalPortIndexNamesList[sourcePortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc\n"
-        genScript += f"s21 = port[{self.internalPortIndexNamesList[targetPortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc\n"
-        genScript += "\n"
-        genScript += "s11_dB = 20*log10(abs(s11))\n"
-        genScript += "s21_dB = 20*log10(abs(s21))\n"
-        genScript += "\n"
-        genScript += "plot(freq/1e9,s11_dB,'k-', linewidth=2)\n"
-        genScript += "grid()\n"
-        genScript += "plot(freq/1e9,s21_dB,'r--', linewidth=2)\n"
-        genScript += "legend(('$S_{11}$','$S_{21}$'))\n"
-        genScript += f"title('S21-Parameter\\n{sourcePortName} $\\\\rightarrow$ {targetPortName}', fontsize=12)\n"
-        genScript += "ylabel('S21(dB)', fontsize=12)\n"
-        genScript += "xlabel('frequency (GHz)', fontsize=12)\n"
-        genScript += "ylim([-40, 2])\n"
-        genScript += "show()\n"
-        genScript += "\n"
-
-        genScript += "#######################################################################################################################################\n"
-        genScript += "# SAVE PLOT DATA\n"
-        genScript += "#######################################################################################################################################\n"
-        genScript += "\n"
-        genScript += "#\n"
-        genScript += "#   Write S11, real and imag Z_in into CSV file separated by ';'\n"
-        genScript += "#\n"
-        genScript += "filename = 'openEMS_simulation_s21_dB.csv'\n"
-        genScript += "\n"
-        genScript += "with open(filename, 'w', newline='') as csvfile:\n"
-        genScript += "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)\n"
-        genScript += "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])\n"
-        genScript += "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it\n"
-        genScript += "\n"
+        genScript += '\n'.join([
+            "#######################################################################################################################################",
+            "# POST-PROCESSING AND PLOT GENERATION",
+            "#######################################################################################################################################",
+            "",
+            "freq = np.linspace(max(1e6, f0 - fc), f0 + fc, 501)",
+            f"port[{self.internalPortIndexNamesList[sourcePortName]}].CalcPort(Sim_Path, freq)",
+            f"port[{self.internalPortIndexNamesList[targetPortName]}].CalcPort(Sim_Path, freq)",
+            "",
+            f"s11 = port[{self.internalPortIndexNamesList[sourcePortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
+            f"s21 = port[{self.internalPortIndexNamesList[targetPortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
+            "",
+            "s11_dB = 20*log10(abs(s11))",
+            "s21_dB = 20*log10(abs(s21))",
+            "",
+            "plot(freq/1e9,s11_dB,'k-', linewidth=2)",
+            "grid()",
+            "plot(freq/1e9,s21_dB,'r--', linewidth=2)",
+            "legend(('$S_{11}$','$S_{21}$'))",
+            f"title('S21-Parameter\\n{sourcePortName} $\\\\rightarrow$ {targetPortName}', fontsize=12)",
+            "ylabel('S21(dB)', fontsize=12)",
+            "xlabel('frequency (GHz)', fontsize=12)",
+            "ylim([-40, 2])",
+            "show()",
+            "",
+            "#######################################################################################################################################",
+            "# SAVE PLOT DATA",
+            "#######################################################################################################################################",
+            "",
+            "#",
+            "#   Write S11, real and imag Z_in into CSV file separated by ','",
+            "#",
+            "filename = 'openEMS_simulation_s21_dB.csv'",
+            "",
+            "with open(filename, 'w', newline='') as csvfile:",
+            "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)",
+            "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])",
+            "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it"
+        ])
 
         # Write OpenEMS Script file into current dir.
 
