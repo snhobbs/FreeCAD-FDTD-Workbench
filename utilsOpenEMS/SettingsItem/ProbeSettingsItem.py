@@ -1,10 +1,20 @@
 from .SettingsItem import SettingsItem
 
+
 class ProbeSettingsItem(SettingsItem):
-    def __init__(self, name="", type="", direction="z",
-                 probeType="", probeDomain="", probeFrequencyList=[],
-                 dumpboxType="", dumpboxDomain="", dumpboxFileType="", dumpboxFrequencyList=[]
-                 ):
+    def __init__(
+        self,
+        name="",
+        type="",
+        direction="z",
+        probeType="",
+        probeDomain="",
+        probeFrequencyList=[],
+        dumpboxType="",
+        dumpboxDomain="",
+        dumpboxFileType="",
+        dumpboxFrequencyList=[],
+    ):
         self.name = name
         self.type = type
 
@@ -24,7 +34,7 @@ class ProbeSettingsItem(SettingsItem):
     def serializeToString(self):
         jsonString = "{'name': '" + self.name
 
-        if (self.type == "nf2ff box"):
+        if self.type == "nf2ff box":
             jsonString += ", 'type': 'nf2ff box'"
 
         jsonString += "}"
@@ -48,7 +58,7 @@ class ProbeSettingsItem(SettingsItem):
             elif self.dumpboxType == "B field":
                 dumpboxType = 5
             else:
-                dumpboxType = '#ERROR probe code generate don\'t know type'
+                dumpboxType = "#ERROR probe code generate don't know type"
 
         elif self.dumpboxDomain == "frequency":
             if self.dumpboxType == "E field":
@@ -62,7 +72,7 @@ class ProbeSettingsItem(SettingsItem):
             elif self.dumpboxType == "B field":
                 dumpboxType = 15
             else:
-                dumpboxType = '#ERROR probe code generate don\'t know type'
+                dumpboxType = "#ERROR probe code generate don't know type"
         else:
             dumpboxType = "#code generator cannot find domain (time/frequency)"
 

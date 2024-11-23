@@ -3,6 +3,7 @@ try:
 except ImportError:
     from PySide6.QtCore import Signal, QObject
 
+
 class GuiSignals(QObject):
     materialsChanged = Signal(str)
     portsChanged = Signal(str)
@@ -18,4 +19,3 @@ class GuiSignals(QObject):
     portRenamed = Signal(str, str)
     lumpedPartRenamed = Signal(str, str)
     probeRenamed = Signal(str, str)
-

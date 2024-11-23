@@ -2,27 +2,28 @@
 #
 #
 import os
+
 try:
     from PySide import QtGui, QtCore, QtWidgets
 except ImportError:
-    from PySide6 import QtGui, QtCore, QtWidgets
+    from PySide6 import QtCore, QtWidgets
 
 
 import numpy as np
 import re
 import math
 import logging
-from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _bool, _r, _r2
-from utilsOpenEMS.GuiHelpers.GuiHelpers import GuiHelpers
-from utilsOpenEMS.GuiHelpers.FactoryCadInterface import FactoryCadInterface
+from utilsOpenEMS.GlobalFunctions.GlobalFunctions import _r, _r2
 
-from utilsOpenEMS.ScriptLinesGenerator.CommonScriptLinesGenerator import CommonScriptLinesGenerator
+from utilsOpenEMS.ScriptLinesGenerator.CommonScriptLinesGenerator import (
+    CommonScriptLinesGenerator,
+)
 
 _log = logging.getLogger("freecad-openems")
 cleanup = False
 
-class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
+class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
     #
     #   constructor, get access to form GUI
     #
@@ -30,7 +31,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         super(PythonScriptLinesGenerator2, self).__init__(form, guiHelpers)
 
     def getCoordinateSystemScriptLines(self):
-        """ # Till now not used, just using rectangular coordination type, cylindrical MUST BE IMPLEMENTED!
+        """# Till now not used, just using rectangular coordination type, cylindrical MUST BE IMPLEMENTED!
         gridCoordsType = self.getModelCoordsType()
         if (gridCoordsType == "rectangular"):
             genScript += "CSX = InitCSX('CoordSystem',0); # Cartesian coordinate system.\n"
@@ -40,25 +41,29 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             genScript += "%%%%%% ERROR GRID COORDINATION SYSTEM TYPE UNKNOWN"
         """
 
-        return '\n'.join([
-            "#######################################################################################################################################",
-            "# COORDINATE SYSTEM",
-            "#######################################################################################################################################",
-            "class Mesh:",
-            "\tdef __init__(self, x,y,z):",
-            "\t\tself.x=x",
-            "\t\tself.y=y",
-            "\t\tself.z=z",
-            "",
-            "",
-            "mesh = Mesh(np.array([]), np.array([]), np.array([])) # mesh variable initialization (Note: x y z implies type Cartesian).",
-            "",
-            "openEMS_grid = CSX.GetGrid()",
-            "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute.",
-            "",
-        ])
+        return "\n".join(
+            [
+                "#######################################################################################################################################",
+                "# COORDINATE SYSTEM",
+                "#######################################################################################################################################",
+                "class Mesh:",
+                "\tdef __init__(self, x,y,z):",
+                "\t\tself.x=x",
+                "\t\tself.y=y",
+                "\t\tself.z=z",
+                "",
+                "",
+                "mesh = Mesh(np.array([]), np.array([]), np.array([])) # mesh variable initialization (Note: x y z implies type Cartesian).",
+                "",
+                "openEMS_grid = CSX.GetGrid()",
+                "openEMS_grid.SetDeltaUnit(unit) # First call with empty mesh to set deltaUnit attribute.",
+                "",
+            ]
+        )
 
-    def getMaterialDefinitionsScriptLines(self, items, outputDir=None, generateObjects=True):
+    def getMaterialDefinitionsScriptLines(
+        self, items, outputDir=None, generateObjects=True
+    ):
         genScript = ""
 
         genScript += "#######################################################################################################################################\n"
@@ -68,18 +73,20 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         # PEC is created by default due it's used when microstrip port is defined, so it's here to have it here.
         # Note that the user will need to create a metal named 'PEC' and populate it to avoid a warning
         # about "no primitives assigned to metal 'PEC'".
-        genScript += "materialList = {}\n"                              # !!!THIS IS ON PURPOSE NOT LITERAL {} brackets are generated into code for python
+        genScript += "materialList = {}\n"  # !!!THIS IS ON PURPOSE NOT LITERAL {} brackets are generated into code for python
         genScript += "\n"
 
         if not items:
             return genScript
 
-        materialCounter = -1    #increment of this variable is at beginning f for loop so start at 0
+        materialCounter = (
+            -1
+        )  # increment of this variable is at beginning f for loop so start at 0
         simObjectCounter = 0
 
         currDir_, baseName = self.getCurrDir()
         currDir = os.path.dirname(self.cadHelpers.getCurrDocumentFileName())
-        assert(currDir == currDir_)
+        assert currDir == currDir_
         if outputDir is None:
             outputDir = currDir
 
@@ -91,7 +98,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             #
             #   Materials are stored in variables in python script, so this is counter to create universal name ie. material_1, material_2, ...
             #
-            if (currSetting.getName() == 'Material Default'):
+            if currSetting.getName() == "Material Default":
                 print("#Material Default")
                 print("---")
                 continue
@@ -99,39 +106,51 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             print("# MATERIAL")
             print(f"# name: {currSetting.getName()}")
             for key in ["epsilon", "mue", "kappa", "sigma"]:
-                  print(f"# {key}: {currSetting.constants[key]}")
+                print(f"# {key}: {currSetting.constants[key]}")
 
             genScript += f"## MATERIAL - {currSetting.getName()}\n"
             materialPythonVariable = f"materialList['{currSetting.getName()}']"
 
-            if (currSetting.type == 'metal'):
+            if currSetting.type == "metal":
                 genScript += f"{materialPythonVariable} = CSX.AddMetal('{currSetting.getName()}')\n"
                 genScript += "\n"
-                self.internalMaterialIndexNamesList[currSetting.getName()] = materialPythonVariable
-            elif (currSetting.type == 'userdefined'):
-                self.internalMaterialIndexNamesList[currSetting.getName()] = materialPythonVariable
+                self.internalMaterialIndexNamesList[currSetting.getName()] = (
+                    materialPythonVariable
+                )
+            elif currSetting.type == "userdefined":
+                self.internalMaterialIndexNamesList[currSetting.getName()] = (
+                    materialPythonVariable
+                )
                 genScript += f"{materialPythonVariable} = CSX.AddMaterial('{currSetting.getName()}')\n"
                 genScript += "\n"
 
                 smp_args = []
-                if str(currSetting.constants['epsilon']) != "0":
+                if str(currSetting.constants["epsilon"]) != "0":
                     smp_args.append(f"epsilon={str(currSetting.constants['epsilon'])}")
-                if str(currSetting.constants['mue']) != "0":
+                if str(currSetting.constants["mue"]) != "0":
                     smp_args.append(f"mue={str(currSetting.constants['mue'])}")
-                if str(currSetting.constants['kappa']) != "0":
+                if str(currSetting.constants["kappa"]) != "0":
                     smp_args.append(f"kappa={str(currSetting.constants['kappa'])}")
-                if str(currSetting.constants['sigma']) != "0":
+                if str(currSetting.constants["sigma"]) != "0":
                     smp_args.append(f"sigma={str(currSetting.constants['sigma'])}")
 
-                genScript += f"{materialPythonVariable}.SetMaterialProperty(" + ", ".join(smp_args) + ")\n"
-            elif (currSetting.type == 'conducting sheet'):
-                genScript += f"{materialPythonVariable} = CSX.AddConductingSheet(" + \
-                             f"'{currSetting.getName()}', " + \
-                             f"conductivity={str(currSetting.constants['conductingSheetConductivity'])}, " + \
-                             f"thickness={str(currSetting.constants['conductingSheetThicknessValue'])}*{str(currSetting.getUnitsAsNumber(currSetting.constants['conductingSheetThicknessUnits']))}" + \
-                             f")\n"
+                genScript += (
+                    f"{materialPythonVariable}.SetMaterialProperty("
+                    + ", ".join(smp_args)
+                    + ")\n"
+                )
+            elif currSetting.type == "conducting sheet":
+                genScript += (
+                    f"{materialPythonVariable} = CSX.AddConductingSheet("
+                    + f"'{currSetting.getName()}', "
+                    + f"conductivity={str(currSetting.constants['conductingSheetConductivity'])}, "
+                    + f"thickness={str(currSetting.constants['conductingSheetThicknessValue'])}*{str(currSetting.getUnitsAsNumber(currSetting.constants['conductingSheetThicknessUnits']))}"
+                    + ")\n"
+                )
                 genScript += "\n"
-                self.internalMaterialIndexNamesList[currSetting.getName()] = materialPythonVariable
+                self.internalMaterialIndexNamesList[currSetting.getName()] = (
+                    materialPythonVariable
+                )
 
             # first print all current material children names
             for k in range(item.childCount()):
@@ -141,17 +160,21 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
             # now export material children, if it's object export as STL, if it's curve export as curve
             for k in range(item.childCount()):
-                simObjectCounter += 1               #counter for objects
+                simObjectCounter += 1  # counter for objects
                 childName = item.child(k).text(0)
 
                 #
-                #	getting item priority
+                # getting item priority
                 #
-                objModelPriorityItemName = item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                objModelPriorityItemName = (
+                    item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                )
                 objModelPriority = self.getItemPriority(objModelPriorityItemName)
 
                 # getting reference to FreeCAD object
-                freeCadObj = [i for i in self.cadHelpers.getObjects() if (i.Label) == childName][0]
+                freeCadObj = [
+                    i for i in self.cadHelpers.getObjects() if (i.Label) == childName
+                ][0]
 
                 #
                 #   HERE IS OBJECT GENERATOR THERE ARE FEW SPECIAL CASES WHICH ARE HANDLED FIRST AND IF OBJECT IS NORMAL STRUCTURE AT THE END IS GENERATED AS .stl FILR:
@@ -159,7 +182,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 #       - discretized edge = curve from line is generated
                 #       - sketch           = curve is generated from it's vertices
                 #
-                if (currSetting.type == 'conducting sheet'):
+                if currSetting.type == "conducting sheet":
                     #
                     #   Here comes object generator for conducting sheet. It's possible to define it as plane in XY, XZ, YZ plane in cartesian coords and XY plane in cylindrical coords.
                     #   So in case of conducting sheet no .stl is generated, it will be generated rectangle based on bounding box.
@@ -168,15 +191,17 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     genScript += f"#object Label: {freeCadObj.Label}\n"
                     bbCoords = freeCadObj.Shape.BoundBox
 
-                    if (freeCadObj.Name.find("Sketch") > -1):
+                    if freeCadObj.Name.find("Sketch") > -1:
                         #
                         # If object is sketch then it's added as it outline
                         #
 
-                        normDir, elevation, points = self.getSketchPointsForConductingSheet(freeCadObj)
+                        normDir, elevation, points = (
+                            self.getSketchPointsForConductingSheet(freeCadObj)
+                        )
                         if not normDir.startswith("ERROR"):
                             genScript += "points = [[],[]]\n"
-                            if len(points[0])  == 0:
+                            if len(points[0]) == 0:
                                 genScript += "## ERROR, no points for polygon for conducting sheet nothing generated"
                             else:
                                 for k in range(len(points[0])):
@@ -186,29 +211,41 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
                             genScript += f"{materialPythonVariable}.AddPolygon(points, '{normDir}', {elevation}, priority={objModelPriority})\n"
                             genScript += "\n"
-                            print("material conducting sheet: polygon into conducting sheet added.")
+                            print(
+                                "material conducting sheet: polygon into conducting sheet added."
+                            )
                         else:
                             genScript += f"## {normDir}\n"
                             genScript += "\n"
                             print("ERROR: material conducting sheet: " + normDir)
 
-                    elif (_r(bbCoords.XMin) == _r(bbCoords.XMax) or _r(bbCoords.YMin) == _r(bbCoords.YMax) or _r(bbCoords.ZMin) == _r(bbCoords.ZMax)):
+                    elif (
+                        _r(bbCoords.XMin) == _r(bbCoords.XMax)
+                        or _r(bbCoords.YMin) == _r(bbCoords.YMax)
+                        or _r(bbCoords.ZMin) == _r(bbCoords.ZMax)
+                    ):
                         #
                         # Adding planar object into conducting sheet, if it consists from faces then each face is added as polygon.
                         #
 
-                        normDir, elevation, facesList = self.getFacePointsForConductingSheet(freeCadObj)
+                        normDir, elevation, facesList = (
+                            self.getFacePointsForConductingSheet(freeCadObj)
+                        )
                         if normDir != "":
                             for face in facesList:
-                                genScript += f"points = [[],[]]\n"
+                                genScript += "points = [[],[]]\n"
                                 for pointIndex in range(len(face[0])):
-                                    genScript += f"points[0].append({face[0][pointIndex]})\n"
-                                    genScript += f"points[1].append({face[1][pointIndex]})\n"
+                                    genScript += (
+                                        f"points[0].append({face[0][pointIndex]})\n"
+                                    )
+                                    genScript += (
+                                        f"points[1].append({face[1][pointIndex]})\n"
+                                    )
                                     genScript += "\n"
                                 genScript += f"{materialPythonVariable}.AddPolygon(points, '{normDir}', {elevation}, priority={objModelPriority})\n"
                                 genScript += "\n"
                         else:
-                            genScript += f"#\tObject has no faces, conducting sheet is generated based on object bounding box since it's planar.\n"
+                            genScript += "#\tObject has no faces, conducting sheet is generated based on object bounding box since it's planar.\n"
                             genScript += f"{materialPythonVariable}.AddBox([{_r(bbCoords.XMin)},{_r(bbCoords.YMin)},{_r(bbCoords.ZMin)}], [{_r(bbCoords.XMax)},{_r(bbCoords.YMax)},{_r(bbCoords.ZMax)}], priority={objModelPriority})\n"
                             genScript += "\n"
 
@@ -217,7 +254,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                         # If object is 3D object then it's boundaries are added as conducting sheets.
                         #
 
-                        genScript += f"#\tObject is 3D so there are sheets on its boundary box generated.\n"
+                        genScript += "#\tObject is 3D so there are sheets on its boundary box generated.\n"
                         genScript += f"{materialPythonVariable}.AddBox([{_r(bbCoords.XMin)}, {_r(bbCoords.YMin)}, {_r(bbCoords.ZMin)}], [{_r(bbCoords.XMax)}, {_r(bbCoords.YMax)}, {_r(bbCoords.ZMin)}], priority={objModelPriority})\n"
                         genScript += f"{materialPythonVariable}.AddBox([{_r(bbCoords.XMin)}, {_r(bbCoords.YMin)}, {_r(bbCoords.ZMin)}], [{_r(bbCoords.XMax)}, {_r(bbCoords.YMin)}, {_r(bbCoords.ZMax)}], priority={objModelPriority})\n"
                         genScript += f"{materialPythonVariable}.AddBox([{_r(bbCoords.XMin)}, {_r(bbCoords.YMin)}, {_r(bbCoords.ZMin)}], [{_r(bbCoords.XMin)}, {_r(bbCoords.YMax)}, {_r(bbCoords.ZMax)}], priority={objModelPriority})\n"
@@ -226,9 +263,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                         genScript += f"{materialPythonVariable}.AddBox([{_r(bbCoords.XMax)}, {_r(bbCoords.YMin)}, {_r(bbCoords.ZMin)}], [{_r(bbCoords.XMax)}, {_r(bbCoords.YMax)}, {_r(bbCoords.ZMax)}], priority={objModelPriority})\n"
                         genScript += "\n"
 
-                elif (freeCadObj.Name.find("Discretized_Edge") > -1):
+                elif freeCadObj.Name.find("Discretized_Edge") > -1:
                     #
-                    #	Adding discretized curve
+                    # Adding discretized curve
                     #
 
                     curvePoints = freeCadObj.Points
@@ -243,10 +280,10 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     genScript += "\n"
                     print("Curve added to generated script using its points.")
 
-                elif (freeCadObj.Name.find("Sketch") > -1):
+                elif freeCadObj.Name.find("Sketch") > -1:
                     #
-                    #	Adding JUST LINE SEGMENTS FROM SKETCH, THIS NEED TO BE IMPROVED TO PROPERLY GENERATE CURVE FROM SKETCH,
-                    #	there can be circle, circle arc and maybe something else in sketch geometry
+                    # Adding JUST LINE SEGMENTS FROM SKETCH, THIS NEED TO BE IMPROVED TO PROPERLY GENERATE CURVE FROM SKETCH,
+                    # there can be circle, circle arc and maybe something else in sketch geometry
                     #
 
                     genScript += "points = [[],[],[]]\n"
@@ -290,12 +327,12 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
                 else:
                     #
-                    #	Adding part as STL model, first export it into file and that file load using octave openEMS function
+                    # Adding part as STL model, first export it into file and that file load using octave openEMS function
                     #
 
                     stlModelFileName = childName + "_gen_model.stl"
 
-                    #genScript += "CSX = ImportSTL( CSX, '" + currSetting.getName() + "'," + str(
+                    # genScript += "CSX = ImportSTL( CSX, '" + currSetting.getName() + "'," + str(
                     #    objModelPriority) + ", [currDir '/" + stlModelFileName + "'],'Transform',{'Scale', fc_unit/unit} );\n"
                     genScript += f"{materialPythonVariable}.AddPolyhedronReader(os.path.join(currDir,'{stlModelFileName}'), priority={objModelPriority}).ReadFile()\n"
 
@@ -310,89 +347,141 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     #
                     # going through each concrete material items and generate their .stl files
 
-                    partToExport = [i for i in self.cadHelpers.getObjects() if (i.Label) == childName]
+                    partToExport = [
+                        i
+                        for i in self.cadHelpers.getObjects()
+                        if (i.Label) == childName
+                    ]
 
-                    #output directory path construction, if there is no parameter for output dir then output is in current freecad file dir
+                    # output directory path construction, if there is no parameter for output dir then output is in current freecad file dir
                     exportFileName = os.path.join(outputDir, stlModelFileName)
 
                     if generateObjects:
                         self.cadHelpers.exportSTL(partToExport, exportFileName)
-                        print("Material object exported as STL into: " + stlModelFileName)
+                        print(
+                            "Material object exported as STL into: " + stlModelFileName
+                        )
 
-            genScript += "\n"   #newline after each COMPLETE material category code generated
+            genScript += (
+                "\n"  # newline after each COMPLETE material category code generated
+            )
         genScript += "\n"
         return genScript
 
-    def getCartesianOrCylindricalScriptLinesFromStartStop(self, bbCoords, startPointName=None, stopPointName=None):
-        genScript = "";
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+    def getCartesianOrCylindricalScriptLinesFromStartStop(
+        self, bbCoords, startPointName=None, stopPointName=None
+    ):
+        genScript = ""
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        sf = (
+            self.getFreeCADUnitLength_m() / refUnit
+        )  # scaling factor for FreeCAD units to drawing units
 
         strPortCoordsCartesianToCylindrical = ""
-        strPortCoordsCartesianToCylindrical += "[generatedAuxTheta, generatedAuxR, generatedAuxZ] = cart2pol(portStart);\n"
-        strPortCoordsCartesianToCylindrical += "portStart = [generatedAuxR, generatedAuxTheta, generatedAuxZ];\n"
-        strPortCoordsCartesianToCylindrical += "[generatedAuxTheta, generatedAuxR, generatedAuxZ] = cart2pol(portStop);\n"
-        strPortCoordsCartesianToCylindrical += "portStop = [generatedAuxR, generatedAuxTheta, generatedAuxZ];\n"
+        strPortCoordsCartesianToCylindrical += (
+            "[generatedAuxTheta, generatedAuxR, generatedAuxZ] = cart2pol(portStart);\n"
+        )
+        strPortCoordsCartesianToCylindrical += (
+            "portStart = [generatedAuxR, generatedAuxTheta, generatedAuxZ];\n"
+        )
+        strPortCoordsCartesianToCylindrical += (
+            "[generatedAuxTheta, generatedAuxR, generatedAuxZ] = cart2pol(portStop);\n"
+        )
+        strPortCoordsCartesianToCylindrical += (
+            "portStop = [generatedAuxR, generatedAuxTheta, generatedAuxZ];\n"
+        )
 
-        if (self.getModelCoordsType() == "cylindrical"):
+        if self.getModelCoordsType() == "cylindrical":
             # CYLINDRICAL COORDINATE TYPE USED
-            if ((bbCoords.XMin <= 0 and bbCoords.YMin <= 0 and bbCoords.XMax >= 0 and bbCoords.YMax >= 0) or
-                (bbCoords.XMin >= 0 and bbCoords.YMin >= 0 and bbCoords.XMax <= 0 and bbCoords.YMax <= 0)
+            if (
+                bbCoords.XMin <= 0
+                and bbCoords.YMin <= 0
+                and bbCoords.XMax >= 0
+                and bbCoords.YMax >= 0
+            ) or (
+                bbCoords.XMin >= 0
+                and bbCoords.YMin >= 0
+                and bbCoords.XMax <= 0
+                and bbCoords.YMax <= 0
             ):
-                if (_r2(bbCoords.XMin) == _r2(bbCoords.XMax) or _r2(bbCoords.YMin) == _r2(bbCoords.YMax)):
+                if _r2(bbCoords.XMin) == _r2(bbCoords.XMax) or _r2(
+                    bbCoords.YMin
+                ) == _r2(bbCoords.YMax):
                     #
                     #   Object is thin it's plane or line crossing origin
                     #
-                    radius1 = -math.sqrt((sf * bbCoords.XMin) ** 2 + (sf * bbCoords.YMin) ** 2)
+                    radius1 = -math.sqrt(
+                        (sf * bbCoords.XMin) ** 2 + (sf * bbCoords.YMin) ** 2
+                    )
                     theta1 = math.atan2(bbCoords.YMin, bbCoords.XMin)
-                    radius2 = math.sqrt((sf * bbCoords.XMax) ** 2 + (sf * bbCoords.YMax) ** 2)
+                    radius2 = math.sqrt(
+                        (sf * bbCoords.XMax) ** 2 + (sf * bbCoords.YMax) ** 2
+                    )
 
-                    genScript += 'portStart = [{0:g}, {1:g}, {2:g}]\n'.format(_r(radius1), _r(theta1), _r(sf * bbCoords.ZMin))
-                    genScript += 'portStop = [{0:g}, {1:g}, {2:g}]\n'.format(_r(radius2), _r(theta1), _r(sf * bbCoords.ZMax))
-                    genScript += '\n'
+                    genScript += "portStart = [{0:g}, {1:g}, {2:g}]\n".format(
+                        _r(radius1), _r(theta1), _r(sf * bbCoords.ZMin)
+                    )
+                    genScript += "portStop = [{0:g}, {1:g}, {2:g}]\n".format(
+                        _r(radius2), _r(theta1), _r(sf * bbCoords.ZMax)
+                    )
+                    genScript += "\n"
                 else:
                     #
                     # origin [0,0,0] is contained inside boundary box, so now must used theta 0-360deg
                     #
-                    radius1 = math.sqrt((sf * bbCoords.XMin) ** 2 + (sf * bbCoords.YMin) ** 2)
-                    radius2 = math.sqrt((sf * bbCoords.XMax) ** 2 + (sf * bbCoords.YMax) ** 2)
+                    radius1 = math.sqrt(
+                        (sf * bbCoords.XMin) ** 2 + (sf * bbCoords.YMin) ** 2
+                    )
+                    radius2 = math.sqrt(
+                        (sf * bbCoords.XMax) ** 2 + (sf * bbCoords.YMax) ** 2
+                    )
 
-                    genScript += 'portStart = [ 0, -math.pi, {0:g} ]\n'.format(_r(sf * bbCoords.ZMin))
-                    genScript += 'portStop  = [ {0:g}, math.pi, {1:g} ]\n'.format(_r(max(radius1, radius2)), _r(sf * bbCoords.ZMax))
-                    genScript += '\n'
+                    genScript += "portStart = [ 0, -math.pi, {0:g} ]\n".format(
+                        _r(sf * bbCoords.ZMin)
+                    )
+                    genScript += "portStop  = [ {0:g}, math.pi, {1:g} ]\n".format(
+                        _r(max(radius1, radius2)), _r(sf * bbCoords.ZMax)
+                    )
+                    genScript += "\n"
             else:
                 #
                 # port is lying outside origin
                 #
-                genScript += 'portStart = [ {0:g}, {1:g}, {2:g} ]\n'.format(_r(sf * bbCoords.XMin),
-                                                                             _r(sf * bbCoords.YMin),
-                                                                             _r(sf * bbCoords.ZMin))
-                genScript += 'portStop  = [ {0:g}, {1:g}, {2:g} ]\n'.format(_r(sf * bbCoords.XMax),
-                                                                             _r(sf * bbCoords.YMax),
-                                                                             _r(sf * bbCoords.ZMax))
+                genScript += "portStart = [ {0:g}, {1:g}, {2:g} ]\n".format(
+                    _r(sf * bbCoords.XMin),
+                    _r(sf * bbCoords.YMin),
+                    _r(sf * bbCoords.ZMin),
+                )
+                genScript += "portStop  = [ {0:g}, {1:g}, {2:g} ]\n".format(
+                    _r(sf * bbCoords.XMax),
+                    _r(sf * bbCoords.YMax),
+                    _r(sf * bbCoords.ZMax),
+                )
                 genScript += strPortCoordsCartesianToCylindrical
 
-                if (bbCoords.YMin <= 0 and bbCoords.YMax >= 0):
+                if bbCoords.YMin <= 0 and bbCoords.YMax >= 0:
                     #
                     #   special case when planar object lays on X axis like in Y+ and Y- in this case theta is generated:
                     #       -pi for start point
                     #       +pi for stop point
                     #   therefore to correct this since theta is in range -pi..+pi I have to add 360deg so +2*pi for start point will get it right as it should be
                     #
-                    genScript += f"portStart[1] += 2*math.pi\n"
+                    genScript += "portStart[1] += 2*math.pi\n"
 
         else:
             # CARTESIAN GRID USED
-            genScript += 'portStart = [ {0:g}, {1:g}, {2:g} ]\n'.format(_r(sf * bbCoords.XMin),
-                                                                         _r(sf * bbCoords.YMin),
-                                                                         _r(sf * bbCoords.ZMin))
-            genScript += 'portStop  = [ {0:g}, {1:g}, {2:g} ]\n'.format(_r(sf * bbCoords.XMax),
-                                                                         _r(sf * bbCoords.YMax),
-                                                                         _r(sf * bbCoords.ZMax))
+            genScript += "portStart = [ {0:g}, {1:g}, {2:g} ]\n".format(
+                _r(sf * bbCoords.XMin), _r(sf * bbCoords.YMin), _r(sf * bbCoords.ZMin)
+            )
+            genScript += "portStop  = [ {0:g}, {1:g}, {2:g} ]\n".format(
+                _r(sf * bbCoords.XMax), _r(sf * bbCoords.YMax), _r(sf * bbCoords.ZMax)
+            )
 
-        if (not startPointName is None):
+        if startPointName is not None:
             genScript = genScript.replace("portStart", startPointName)
-        if (not stopPointName is None):
+        if stopPointName is not None:
             genScript = genScript.replace("portStop", stopPointName)
 
         return genScript
@@ -402,14 +491,17 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if not items:
             return genScript
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        sf = (
+            self.getFreeCADUnitLength_m() / refUnit
+        )  # scaling factor for FreeCAD units to drawing units
 
         # port index counter, they are generated into port{} cell variable for octave, cells index starts at 1
         genScriptPortCount = 1
 
         # nf2ff box counter, they are stored inside octave cell variable {} so this is to index them properly, in octave cells index starts at 1
-        genNF2FFBoxCounter = 1
 
         #
         #   This here generates string for port excitation field, ie. for z+ generates [0 0 1], for y- generates [0 -1 0]
@@ -417,15 +509,37 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         #       with these options so to keep backward compatibility they are treated as positive direction in that directions.
         #
 
-        #baseVectorStr = {'x': '[1 0 0]', 'y': '[0 1 0]', 'z': '[0 0 1]', 'x+': '[1 0 0]', 'y+': '[0 1 0]', 'z+': '[0 0 1]', 'x-': '[-1 0 0]', 'y-': '[0 -1 0]', 'z-': '[0 0 -1]', 'XY plane, top layer': '[0 0 -1]', 'XY plane, bottom layer': '[0 0 1]', 'XZ plane, front layer': '[0 -1 0]', 'XZ plane, back layer': '[0 1 0]', 'YZ plane, right layer': '[-1 0 0]', 'YZ plane, left layer': '[1 0 0]',}
-        #ERROR: followed baseVectorStr is just to generate something but need to take into consideration also sign of propagation direction
-        baseVectorStr = {'x': "'x'", 'y': "'y'", 'z': "'z'", 'x+': "'x'", 'y+': "'y'", 'z+': "'z'", 'x-': "'x'", 'y-': "'y'", 'z-': "'z'", 'XY plane, top layer': "'z'", 'XY plane, bottom layer': "'z'", 'XZ plane, front layer': "'y'", 'XZ plane, back layer': "'y'", 'YZ plane, right layer': "'z'", 'YZ plane, left layer': "'x'",}
+        # baseVectorStr = {'x': '[1 0 0]', 'y': '[0 1 0]', 'z': '[0 0 1]', 'x+': '[1 0 0]', 'y+': '[0 1 0]', 'z+': '[0 0 1]', 'x-': '[-1 0 0]', 'y-': '[0 -1 0]', 'z-': '[0 0 -1]', 'XY plane, top layer': '[0 0 -1]', 'XY plane, bottom layer': '[0 0 1]', 'XZ plane, front layer': '[0 -1 0]', 'XZ plane, back layer': '[0 1 0]', 'YZ plane, right layer': '[-1 0 0]', 'YZ plane, left layer': '[1 0 0]',}
+        # ERROR: followed baseVectorStr is just to generate something but need to take into consideration also sign of propagation direction
+        baseVectorStr = {
+            "x": "'x'",
+            "y": "'y'",
+            "z": "'z'",
+            "x+": "'x'",
+            "y+": "'y'",
+            "z+": "'z'",
+            "x-": "'x'",
+            "y-": "'y'",
+            "z-": "'z'",
+            "XY plane, top layer": "'z'",
+            "XY plane, bottom layer": "'z'",
+            "XZ plane, front layer": "'y'",
+            "XZ plane, back layer": "'y'",
+            "YZ plane, right layer": "'z'",
+            "YZ plane, left layer": "'x'",
+        }
 
-        mslDirStr = {'x': "'x'", 'y': "'y'", 'z': "'z'", 'x+': "'x'", 'y+': "'y'", 'z+': "'z'", 'x-': "'x'", 'y-': "'y'", 'z-': "'z'",}
-        coaxialDirStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2',}
-        coplanarDirStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2',}
-        striplineDirStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2',}
-        probeDirStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2',}
+        mslDirStr = {
+            "x": "'x'",
+            "y": "'y'",
+            "z": "'z'",
+            "x+": "'x'",
+            "y+": "'y'",
+            "z+": "'z'",
+            "x-": "'x'",
+            "y-": "'y'",
+            "z-": "'z'",
+        }
 
         genScript += "#######################################################################################################################################\n"
         genScript += "# PORTS\n"
@@ -434,14 +548,15 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "portNamesAndNumbersList = {}\n"
 
         for [item, currSetting] in items:
-
             print(f"#PORT - {currSetting.getName()} - {currSetting.getType()}")
 
             objs = self.cadHelpers.getObjects()
             for k in range(item.childCount()):
                 childName = item.child(k).text(0)
 
-                genScript += "## PORT - " + currSetting.getName() + " - " + childName + "\n"
+                genScript += (
+                    "## PORT - " + currSetting.getName() + " - " + childName + "\n"
+                )
 
                 freecadObjects = [i for i in objs if (i.Label) == childName]
 
@@ -449,37 +564,65 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 for obj in freecadObjects:
                     # BOUNDING BOX
                     bbCoords = obj.Shape.BoundBox
-                    print('\tFreeCAD lumped port BoundBox: ' + str(bbCoords))
+                    print("\tFreeCAD lumped port BoundBox: " + str(bbCoords))
 
                     #
-                    #	getting item priority
+                    # getting item priority
                     #
-                    priorityItemName = item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                    priorityItemName = (
+                        item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                    )
                     priorityIndex = self.getItemPriority(priorityItemName)
 
                     #
                     # PORT openEMS GENERATION INTO VARIABLE
                     #
-                    if (currSetting.getType() == 'lumped'):
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords)
+                    if currSetting.getType() == "lumped":
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords
+                            )
+                        )
 
                         if currSetting.infiniteResistance:
-                            genScript += 'portR = inf\n'
+                            genScript += "portR = inf\n"
                         else:
-                            genScript += 'portR = ' + str(currSetting.R) + '\n'
+                            genScript += "portR = " + str(currSetting.R) + "\n"
 
-                        genScript += 'portUnits = ' + str(currSetting.getRUnits()) + '\n'
-                        genScript += "portExcitationAmplitude = " + str(currSetting.excitationAmplitude) + "\n"
-                        genScript += 'portDirection = \'' + currSetting.direction + '\'\n'
+                        genScript += (
+                            "portUnits = " + str(currSetting.getRUnits()) + "\n"
+                        )
+                        genScript += (
+                            "portExcitationAmplitude = "
+                            + str(currSetting.excitationAmplitude)
+                            + "\n"
+                        )
+                        genScript += "portDirection = '" + currSetting.direction + "'\n"
 
-                        genScript += 'port[' + str(genScriptPortCount) + '] = FDTD.AddLumpedPort(' + \
-                                     'port_nr=' + str(genScriptPortCount) + ', ' + \
-                                     'R=portR*portUnits, start=portStart, stop=portStop, p_dir=portDirection, ' + \
-                                     'priority=' + str(priorityIndex) + ', ' + \
-                                     'excite=' + ('1.0*portExcitationAmplitude' if currSetting.isActive else '0') + ')\n'
+                        genScript += (
+                            "port["
+                            + str(genScriptPortCount)
+                            + "] = FDTD.AddLumpedPort("
+                            + "port_nr="
+                            + str(genScriptPortCount)
+                            + ", "
+                            + "R=portR*portUnits, start=portStart, stop=portStop, p_dir=portDirection, "
+                            + "priority="
+                            + str(priorityIndex)
+                            + ", "
+                            + "excite="
+                            + (
+                                "1.0*portExcitationAmplitude"
+                                if currSetting.isActive
+                                else "0"
+                            )
+                            + ")\n"
+                        )
 
                         internalPortName = currSetting.name + " - " + obj.Label
-                        self.internalPortIndexNamesList[internalPortName] = genScriptPortCount
+                        self.internalPortIndexNamesList[internalPortName] = (
+                            genScriptPortCount
+                        )
                         genScript += f'portNamesAndNumbersList["{obj.Label}"] = {genScriptPortCount};\n'
                         genScriptPortCount += 1
 
@@ -487,118 +630,178 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     #   ERROR - BELOW STILL NOT REWRITTEN INTO PYTHON!!!
                     #
 
-                    elif (currSetting.getType() == 'microstrip'):
-                        portStartX, portStartY, portStartZ, portStopX, portStopY, portStopZ = currSetting.getMicrostripStartStopCoords(bbCoords, sf)
+                    elif currSetting.getType() == "microstrip":
+                        (
+                            portStartX,
+                            portStartY,
+                            portStartZ,
+                            portStopX,
+                            portStopY,
+                            portStopZ,
+                        ) = currSetting.getMicrostripStartStopCoords(bbCoords, sf)
                         bbCoords.Xmin = portStartX
                         bbCoords.Ymin = portStartY
                         bbCoords.Zmin = portStartZ
                         bbCoords.Xmax = portStopX
                         bbCoords.Ymax = portStopY
                         bbCoords.Zmax = portStopZ
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords)
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords
+                            )
+                        )
 
                         if currSetting.infiniteResistance:
-                            genScript += 'portR = inf\n'
+                            genScript += "portR = inf\n"
                         else:
-                            genScript += 'portR = ' + str(currSetting.R) + '\n'
+                            genScript += "portR = " + str(currSetting.R) + "\n"
 
-                        genScript += 'portUnits = ' + str(currSetting.getRUnits()) + '\n'
+                        genScript += (
+                            "portUnits = " + str(currSetting.getRUnits()) + "\n"
+                        )
 
                         #
                         #   if currSetting.isActive == False then excitation is 0
                         #
                         genScript += f"portExcitationAmplitude = {str(currSetting.excitationAmplitude)} * {'1' if currSetting.isActive else '0'}\n"
 
-                        genScript += 'mslDir = {}\n'.format(mslDirStr.get(currSetting.mslPropagation[0], '?')) #use just first letter of propagation direction
-                        genScript += 'mslEVec = {}\n'.format(baseVectorStr.get(currSetting.direction, '?'))
+                        genScript += "mslDir = {}\n".format(
+                            mslDirStr.get(currSetting.mslPropagation[0], "?")
+                        )  # use just first letter of propagation direction
+                        genScript += "mslEVec = {}\n".format(
+                            baseVectorStr.get(currSetting.direction, "?")
+                        )
 
-                        feedShiftStr = {False: "", True: ", FeedShift=" + str(_r(currSetting.mslFeedShiftValue / self.getUnitLengthFromUI_m() * currSetting.getUnitsAsNumber(currSetting.mslFeedShiftUnits)))}
-                        measPlaneStr = {False: "", True: ", MeasPlaneShift=" + str(_r(currSetting.mslMeasPlaneShiftValue / self.getUnitLengthFromUI_m() * currSetting.getUnitsAsNumber(currSetting.mslMeasPlaneShiftUnits)))}
+                        feedShiftStr = {
+                            False: "",
+                            True: ", FeedShift="
+                            + str(
+                                _r(
+                                    currSetting.mslFeedShiftValue
+                                    / self.getUnitLengthFromUI_m()
+                                    * currSetting.getUnitsAsNumber(
+                                        currSetting.mslFeedShiftUnits
+                                    )
+                                )
+                            ),
+                        }
+                        measPlaneStr = {
+                            False: "",
+                            True: ", MeasPlaneShift="
+                            + str(
+                                _r(
+                                    currSetting.mslMeasPlaneShiftValue
+                                    / self.getUnitLengthFromUI_m()
+                                    * currSetting.getUnitsAsNumber(
+                                        currSetting.mslMeasPlaneShiftUnits
+                                    )
+                                )
+                            ),
+                        }
 
-                        isActiveMSLStr = {False: "", True: ", 'ExcitePort', true"}
-
-                        genScript_R = ", 'Feed_R', portR*portUnits"
-
-                        genScript += f'port[{str(genScriptPortCount)}] = FDTD.AddMSLPort(' + \
-                                         f'{str(genScriptPortCount)}, ' + \
-                                         f"{self.internalMaterialIndexNamesList[currSetting.mslMaterial]}, " + \
-                                         f'portStart, ' + \
-                                         f'portStop, ' + \
-                                         f'mslDir, ' + \
-                                         f'mslEVec, ' + \
-                                         f"excite=portExcitationAmplitude, " + \
-                                         f'priority={str(priorityIndex)}, ' + \
-                                         f'Feed_R=portR*portUnits' + \
-                                         feedShiftStr.get(True) + \
-                                         measPlaneStr.get(True) + \
-                                   f")\n"
+                        genScript += (
+                            f"port[{str(genScriptPortCount)}] = FDTD.AddMSLPort("
+                            + f"{str(genScriptPortCount)}, "
+                            + f"{self.internalMaterialIndexNamesList[currSetting.mslMaterial]}, "
+                            + "portStart, "
+                            + "portStop, "
+                            + "mslDir, "
+                            + "mslEVec, "
+                            + "excite=portExcitationAmplitude, "
+                            + f"priority={str(priorityIndex)}, "
+                            + "Feed_R=portR*portUnits"
+                            + feedShiftStr.get(True)
+                            + measPlaneStr.get(True)
+                            + ")\n"
+                        )
 
                         internalPortName = currSetting.name + " - " + obj.Label
-                        self.internalPortIndexNamesList[internalPortName] = genScriptPortCount
+                        self.internalPortIndexNamesList[internalPortName] = (
+                            genScriptPortCount
+                        )
                         genScript += f'portNamesAndNumbersList["{obj.Label}"] = {genScriptPortCount};\n'
                         genScriptPortCount += 1
 
-                    elif (currSetting.getType() == 'circular waveguide'):
+                    elif currSetting.getType() == "circular waveguide":
                         #
                         #   NOV 2023 - PYTHON API NOT IMPLEMENTED
                         #
                         genScript += "%% circular port openEMS code should be here, NOT IMPLEMENTED python API for it\n"
 
-                    elif (currSetting.getType() == 'rectangular waveguide'):
-                        portStartX, portStartY, portStartZ, portStopX, portStopY, portStopZ, waveguideWidth, waveguideHeight = currSetting.getRectangularWaveguideStartStopWidthHeight(bbCoords, sf)
+                    elif currSetting.getType() == "rectangular waveguide":
+                        (
+                            portStartX,
+                            portStartY,
+                            portStartZ,
+                            portStopX,
+                            portStopY,
+                            portStopZ,
+                            waveguideWidth,
+                            waveguideHeight,
+                        ) = currSetting.getRectangularWaveguideStartStopWidthHeight(
+                            bbCoords, sf
+                        )
                         bbCoords.Xmin = portStartX
                         bbCoords.Ymin = portStartY
                         bbCoords.Zmin = portStartZ
                         bbCoords.Xmax = portStopX
                         bbCoords.Ymax = portStopY
                         bbCoords.Zmax = portStopZ
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords)
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords
+                            )
+                        )
 
                         genScript += f"portExcitationAmplitude = {str(currSetting.excitationAmplitude)} * {'1' if currSetting.isActive else '0'}\n"
 
-                        genScript += f'port[{str(genScriptPortCount)}] = FDTD.AddRectWaveGuidePort(' + \
-                                     f'{str(genScriptPortCount)}, ' + \
-                                     f'portStart, ' + \
-                                     f'portStop, ' + \
-                                     f'"{currSetting.waveguideRectDir[0]}", ' + \
-                                     f'{waveguideWidth}, ' + \
-                                     f'{waveguideHeight}, ' + \
-                                     f'"{currSetting.modeName}", ' + \
-                                     f"excite=portExcitationAmplitude, " + \
-                                     f'priority={str(priorityIndex)}, ' + \
-                                     f")\n"
+                        genScript += (
+                            f"port[{str(genScriptPortCount)}] = FDTD.AddRectWaveGuidePort("
+                            + f"{str(genScriptPortCount)}, "
+                            + "portStart, "
+                            + "portStop, "
+                            + f'"{currSetting.waveguideRectDir[0]}", '
+                            + f"{waveguideWidth}, "
+                            + f"{waveguideHeight}, "
+                            + f'"{currSetting.modeName}", '
+                            + "excite=portExcitationAmplitude, "
+                            + f"priority={str(priorityIndex)}, "
+                            + ")\n"
+                        )
 
                         internalPortName = currSetting.name + " - " + obj.Label
-                        self.internalPortIndexNamesList[internalPortName] = genScriptPortCount
+                        self.internalPortIndexNamesList[internalPortName] = (
+                            genScriptPortCount
+                        )
                         genScript += f'portNamesAndNumbersList["{obj.Label}"] = {genScriptPortCount};\n'
                         genScriptPortCount += 1
-                    elif (currSetting.getType() == 'coaxial'):
+                    elif currSetting.getType() == "coaxial":
                         #
                         #   NOV 2023 - PYTHON API NOT IMPLEMENTED
                         #
-                        genScript += '# ERROR: caoxial port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n'
+                        genScript += "# ERROR: caoxial port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n"
                         genScript += '# raise BaseException("caoxial port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE coaxial port")\n'
 
-                    elif (currSetting.getType() == 'coplanar'):
+                    elif currSetting.getType() == "coplanar":
                         #
                         #   NOV 2023 - PYTHON API NOT IMPLEMENTED
                         #
-                        genScript += '# ERROR: coplanar port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n'
+                        genScript += "# ERROR: coplanar port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n"
                         genScript += 'raise BaseException("coplanar port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE")\n'
 
-                    elif (currSetting.getType() == 'stripline'):
+                    elif currSetting.getType() == "stripline":
                         #
                         #   NOV 2023 - PYTHON API NOT IMPLEMENTED
                         #
-                        genScript += '# ERROR: stripline port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n'
+                        genScript += "# ERROR: stripline port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n"
                         genScript += 'raise BaseException("stripline port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE")\n'
 
-                    elif (currSetting.getType() == 'curve'):
-                        genScript += '# ERROR: curve port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n'
+                    elif currSetting.getType() == "curve":
+                        genScript += "# ERROR: curve port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE\n"
                         genScript += 'raise BaseException("curve port function NOT IMPLEMENTED IN openEMS PYTHON INTERFACE")\n'
 
                     else:
-                        genScript += '# Unknown port type. Nothing was generated.\n'
+                        genScript += "# Unknown port type. Nothing was generated.\n"
                         genScript += 'raise BaseException("Unknown port type. Nothing was generated.")\n'
 
             genScript += "\n"
@@ -610,8 +813,10 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if not items:
             return genScript
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
 
         # counters for indexing generated python code variables containing list of generated object by their type
         genProbeCounter = 1
@@ -625,8 +830,23 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         #       Options for select field x,y,z were removed from GUI, but left here due there could be saved files from previous versions
         #       with these options so to keep backward compatibility they are treated as positive direction in that directions.
         #
-        baseVectorStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2', 'XY plane, top layer': '2', 'XY plane, bottom layer': '2', 'XZ plane, front layer': '1', 'XZ plane, back layer': '1', 'YZ plane, right layer': '0', 'YZ plane, left layer': '0',}
-        probeDirStr = {'x': '0', 'y': '1', 'z': '2', 'x+': '0', 'y+': '1', 'z+': '2', 'x-': '0', 'y-': '1', 'z-': '2',}
+        baseVectorStr = {
+            "x": "0",
+            "y": "1",
+            "z": "2",
+            "x+": "0",
+            "y+": "1",
+            "z+": "2",
+            "x-": "0",
+            "y-": "1",
+            "z-": "2",
+            "XY plane, top layer": "2",
+            "XY plane, bottom layer": "2",
+            "XZ plane, front layer": "1",
+            "XZ plane, back layer": "1",
+            "YZ plane, right layer": "0",
+            "YZ plane, left layer": "0",
+        }
 
         genScript += "#######################################################################################################################################\n"
         genScript += "# PROBES\n"
@@ -637,14 +857,15 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "\n"
 
         for [item, currSetting] in items:
-
             print(f"#PROBE - {currSetting.getName()} - {currSetting.getType()}")
 
             objs = self.cadHelpers.getObjects()
             for k in range(item.childCount()):
                 childName = item.child(k).text(0)
 
-                genScript += "# PROBE - " + currSetting.getName() + " - " + childName + "\n"
+                genScript += (
+                    "# PROBE - " + currSetting.getName() + " - " + childName + "\n"
+                )
 
                 freecadObjects = [i for i in objs if (i.Label) == childName]
 
@@ -658,56 +879,79 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     #
                     # PROBE openEMS GENERATION INTO VARIABLE
                     #
-                    if (currSetting.getType() == "probe"):
+                    if currSetting.getType() == "probe":
                         probeName = f"{currSetting.name}_{childName}"
                         genScript += f'probeName = "{probeName}"\n'
 
-                        genScript += 'probeDirection = {}\n'.format(baseVectorStr.get(currSetting.direction, '?'))
+                        genScript += "probeDirection = {}\n".format(
+                            baseVectorStr.get(currSetting.direction, "?")
+                        )
 
                         if currSetting.probeType == "voltage":
-                            genScript += 'probeType = 0\n'
+                            genScript += "probeType = 0\n"
                         elif currSetting.probeType == "current":
-                            genScript += 'probeType = 1\n'
+                            genScript += "probeType = 1\n"
                         elif currSetting.probeType == "E field":
-                            genScript += 'probeType = 2\n'
+                            genScript += "probeType = 2\n"
                         elif currSetting.probeType == "H field":
-                            genScript += 'probeType = 3\n'
+                            genScript += "probeType = 3\n"
                         else:
-                            genScript += 'probeType = ?    #ERROR probe code generate don\'t know type\n'
+                            genScript += "probeType = ?    #ERROR probe code generate don't know type\n"
 
                         argStr = ""
-                        if not (bbCoords.XMin == bbCoords.XMax or bbCoords.YMin == bbCoords.YMax or bbCoords.ZMin == bbCoords.ZMax):
-                            argStr += f", norm_dir=probeDirection"
+                        if not (
+                            bbCoords.XMin == bbCoords.XMax
+                            or bbCoords.YMin == bbCoords.YMax
+                            or bbCoords.ZMin == bbCoords.ZMax
+                        ):
+                            argStr += ", norm_dir=probeDirection"
 
-                        if (currSetting.probeDomain == "frequency"):
-                            argStr += f", frequency=["
+                        if currSetting.probeDomain == "frequency":
+                            argStr += ", frequency=["
 
-                            if (len(currSetting.probeFrequencyList) > 0):
+                            if len(currSetting.probeFrequencyList) > 0:
                                 for freqStr in currSetting.probeFrequencyList:
                                     freqStr = freqStr.strip()
-                                    result = re.search(r"([+,\,\-,.,0-9]+)([A-Za-z]+)$", freqStr)
+                                    result = re.search(
+                                        r"([+,\,\-,.,0-9]+)([A-Za-z]+)$", freqStr
+                                    )
                                     if result:
                                         freqValue = float(result.group(1))
                                         freqUnits = result.group(2)
-                                        freqValue = freqValue * currSetting.getUnitsAsNumber(freqUnits)
+                                        freqValue = (
+                                            freqValue
+                                            * currSetting.getUnitsAsNumber(freqUnits)
+                                        )
                                         argStr += str(freqValue) + ","
                                 argStr += "]"
                             else:
                                 argStr += "f0]#{ERROR NO FREQUENCIES FOR PROBE FOUND, SO INSTEAD USED f0#}"
-                                self.cadHelpers.printWarning(f"probe octave code generator error, no frequencies defined for '{probeName}', using f0 instead\n")
+                                self.cadHelpers.printWarning(
+                                    f"probe octave code generator error, no frequencies defined for '{probeName}', using f0 instead\n"
+                                )
 
-                        genScript += f"probeList[probeName] = CSX.AddProbe(probeName, probeType" + argStr + ")\n"
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "probeStart", "probeStop")
-                        genScript += f"probeList[probeName].AddBox(probeStart, probeStop )\n"
+                        genScript += (
+                            "probeList[probeName] = CSX.AddProbe(probeName, probeType"
+                            + argStr
+                            + ")\n"
+                        )
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords, "probeStart", "probeStop"
+                            )
+                        )
+                        genScript += (
+                            "probeList[probeName].AddBox(probeStart, probeStop )\n"
+                        )
                         genScript += "\n"
                         genProbeCounter += 1
 
-                    elif (currSetting.getType() == "dumpbox"):
+                    elif currSetting.getType() == "dumpbox":
                         dumpboxName = f"{currSetting.name}_{childName}"
                         genScript += f'dumpboxName = "{dumpboxName}"\n'
 
                         dumpType = currSetting.getDumpType()
-                        genScript += f'dumpboxType = {dumpType}\n'
+                        genScript += f"dumpboxType = {dumpType}\n"
 
                         argStr = ""
                         #
@@ -715,76 +959,109 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                         #       0 = vtk (default)
                         #       1 = hdf5
                         #
-                        if (currSetting.dumpboxFileType == "hdf5"):
-                            argStr += f", file_type=1"
+                        if currSetting.dumpboxFileType == "hdf5":
+                            argStr += ", file_type=1"
 
                         emptyFrequencyListError = False
-                        if (currSetting.dumpboxDomain == "frequency"):
+                        if currSetting.dumpboxDomain == "frequency":
                             argStr += ", frequency=["
 
-                            if (len(currSetting.dumpboxFrequencyList) > 0):
+                            if len(currSetting.dumpboxFrequencyList) > 0:
                                 for freqStr in currSetting.dumpboxFrequencyList:
                                     freqStr = freqStr.strip()
-                                    result = re.search(r"([+,\,\-,.,0-9]+)([A-Za-z]+)$", freqStr)
+                                    result = re.search(
+                                        r"([+,\,\-,.,0-9]+)([A-Za-z]+)$", freqStr
+                                    )
                                     if result:
                                         freqValue = float(result.group(1))
                                         freqUnits = result.group(2)
-                                        freqValue = freqValue * currSetting.getUnitsAsNumber(freqUnits)
+                                        freqValue = (
+                                            freqValue
+                                            * currSetting.getUnitsAsNumber(freqUnits)
+                                        )
                                         argStr += str(freqValue) + ","
                                 argStr += "]"
                             else:
                                 emptyFrequencyListError = True
                                 argStr += "f0]"
-                                self.cadHelpers.printWarning(f"dumpbox octave code generator error, no frequencies defined for '{dumpboxName}', using f0 instead\n")
+                                self.cadHelpers.printWarning(
+                                    f"dumpbox octave code generator error, no frequencies defined for '{dumpboxName}', using f0 instead\n"
+                                )
 
-                        #if error put note about it into script
+                        # if error put note about it into script
                         if emptyFrequencyListError:
-                            genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=dumpboxType" + argStr + ") # ERROR script generation no frequencies for dumpbox, therefore using f0\n"
+                            genScript += (
+                                "dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=dumpboxType"
+                                + argStr
+                                + ") # ERROR script generation no frequencies for dumpbox, therefore using f0\n"
+                            )
                         else:
-                            genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=dumpboxType" + argStr + ")\n"
+                            genScript += (
+                                "dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=dumpboxType"
+                                + argStr
+                                + ")\n"
+                            )
 
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "dumpboxStart", "dumpboxStop")
-                        genScript += f"dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop )\n"
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords, "dumpboxStart", "dumpboxStop"
+                            )
+                        )
+                        genScript += "dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop )\n"
                         genScript += "\n"
                         genDumpBoxCounter += 1
 
-                    elif (currSetting.getType() == 'et dump'):
+                    elif currSetting.getType() == "et dump":
                         dumpboxName = f"{currSetting.name}_{childName}"
                         genScript += f'dumpboxName = "{dumpboxName}"\n'
 
-                        genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=0, dump_mode=2)\n"
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "dumpboxStart", "dumpboxStop")
-                        genScript += f"dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop)\n"
+                        genScript += "dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=0, dump_mode=2)\n"
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords, "dumpboxStart", "dumpboxStop"
+                            )
+                        )
+                        genScript += "dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop)\n"
                         genDumpBoxCounter += 1
 
-                    elif (currSetting.getType() == 'ht dump'):
+                    elif currSetting.getType() == "ht dump":
                         dumpboxName = f"{currSetting.name}_{childName}"
                         genScript += f'dumpboxName = "{dumpboxName}"\n'
 
-                        genScript += f"dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=1, dump_mode=2)\n"
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "dumpboxStart", "dumpboxStop")
-                        genScript += f"dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop );\n"
+                        genScript += "dumpBoxList[dumpboxName] = CSX.AddDump(dumpboxName, dump_type=1, dump_mode=2)\n"
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords, "dumpboxStart", "dumpboxStop"
+                            )
+                        )
+                        genScript += "dumpBoxList[dumpboxName].AddBox(dumpboxStart, dumpboxStop );\n"
                         genDumpBoxCounter += 1
 
-                    elif (currSetting.getType() == 'nf2ff box'):
+                    elif currSetting.getType() == "nf2ff box":
                         dumpboxName = f"{currSetting.name} - {childName}"
                         dumpboxName = dumpboxName.replace(" ", "_")
                         genScript += f'dumpboxName = "{dumpboxName}"\n'
 
-                        genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "nf2ffStart", "nf2ffStop")
+                        genScript += (
+                            self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                                bbCoords, "nf2ffStart", "nf2ffStop"
+                            )
+                        )
 
                         # genScript += 'nf2ffUnit = ' + currSetting.getUnitAsScriptLine() + ';\n'
-                        genScript += f"nf2ffBoxList[dumpboxName] = FDTD.CreateNF2FFBox(dumpboxName, nf2ffStart, nf2ffStop)\n"
+                        genScript += "nf2ffBoxList[dumpboxName] = FDTD.CreateNF2FFBox(dumpboxName, nf2ffStart, nf2ffStop)\n"
                         # NF2FF grid lines are generated below via getNF2FFDefinitionsScriptLines()
 
                         #
                         #   ATTENTION this is NF2FF box counter
                         #
-                        self.internalNF2FFIndexNamesList[dumpboxName] = genNF2FFBoxCounter
+                        self.internalNF2FFIndexNamesList[dumpboxName] = (
+                            genNF2FFBoxCounter
+                        )
                         genNF2FFBoxCounter += 1
 
                     else:
-                        genScript += '# Unknown port type. Nothing was generated. \n'
+                        genScript += "# Unknown port type. Nothing was generated. \n"
 
             genScript += "\n"
 
@@ -795,8 +1072,10 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if not items:
             return genScript
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
 
         genScript += "#######################################################################################################################################\n"
         genScript += "# LUMPED PART\n"
@@ -807,7 +1086,6 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
             # traverse through all children item for this particular lumped part settings
             objs = self.cadHelpers.getObjects()
-            objsExport = []
             for k in range(item.childCount()):
                 childName = item.child(k).text(0)
                 print("#LUMPED PART " + currentSetting.getType())
@@ -819,16 +1097,18 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     # BOUNDING BOX
                     bbCoords = obj.Shape.BoundBox
 
-                    genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(bbCoords, "lumpedPartStart", "lumpedPartStop")
+                    genScript += self.getCartesianOrCylindricalScriptLinesFromStartStop(
+                        bbCoords, "lumpedPartStart", "lumpedPartStop"
+                    )
 
                     lumpedPartParams = f"'{currentSetting.name}'"
                     lumpedPartParams += f", ny='{currentSetting.getDirection()}'"
 
-                    if ('r' in currentSetting.getType().lower()):
+                    if "r" in currentSetting.getType().lower():
                         lumpedPartParams += f", R={currentSetting.getR()}"
-                    if ('l' in currentSetting.getType().lower()):
+                    if "l" in currentSetting.getType().lower():
                         lumpedPartParams += f", L={currentSetting.getL()}"
-                    if ('c' in currentSetting.getType().lower()):
+                    if "c" in currentSetting.getType().lower():
                         lumpedPartParams += f", C={currentSetting.getC()}"
 
                     lumpedPartParams += f", caps={'True' if currentSetting.getCapsEnabled() else 'False'}"
@@ -836,22 +1116,26 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     #
                     #   WARNING: This was added just recently needs to be validated.
                     #
-                    if (currentSetting.getCombinationType() == 'parallel'):
-                        #lumpedPartParams += f", LEtype=0"
+                    if currentSetting.getCombinationType() == "parallel":
+                        # lumpedPartParams += f", LEtype=0"
                         pass
-                    elif (currentSetting.getCombinationType() == 'series'):
-                        lumpedPartParams += f", LEtype=1"
+                    elif currentSetting.getCombinationType() == "series":
+                        lumpedPartParams += ", LEtype=1"
                     else:
                         pass
 
                     #
-                    #	getting item priority
+                    # getting item priority
                     #
-                    priorityItemName = item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                    priorityItemName = (
+                        item.parent().text(0) + ", " + item.text(0) + ", " + childName
+                    )
                     priorityIndex = self.getItemPriority(priorityItemName)
 
                     # WARNING: Caps param has hardwired value 1, will be generated small metal caps to connect part with circuit !!!
-                    genScript += f"lumpedPart = CSX.AddLumpedElement({lumpedPartParams});\n"
+                    genScript += (
+                        f"lumpedPart = CSX.AddLumpedElement({lumpedPartParams});\n"
+                    )
                     genScript += f"lumpedPart.AddBox(lumpedPartStart, lumpedPartStop, priority={priorityIndex});\n"
 
             genScript += "\n"
@@ -863,12 +1147,15 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if not items:
             return genScript
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
-        nf2ff_gridlines = {'x': [], 'y': [], 'z': []}
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        sf = (
+            self.getFreeCADUnitLength_m() / refUnit
+        )  # scaling factor for FreeCAD units to drawing units
+        nf2ff_gridlines = {"x": [], "y": [], "z": []}
 
         for [item, currSetting] in items:
-
             objs = self.cadHelpers.getObjects()
             for k in range(item.childCount()):
                 childName = item.child(k).text(0)
@@ -880,16 +1167,31 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     # BOUNDING BOX
                     bbCoords = obj.Shape.BoundBox
 
-                    if (currSetting.getType() == 'nf2ff box'):
-                        nf2ff_gridlines['x'].append("{0:g}".format(_r(sf * bbCoords.XMin)))
-                        nf2ff_gridlines['x'].append("{0:g}".format(_r(sf * bbCoords.XMax)))
-                        nf2ff_gridlines['y'].append("{0:g}".format(_r(sf * bbCoords.YMin)))
-                        nf2ff_gridlines['y'].append("{0:g}".format(_r(sf * bbCoords.YMax)))
-                        nf2ff_gridlines['z'].append("{0:g}".format(_r(sf * bbCoords.ZMin)))
-                        nf2ff_gridlines['z'].append("{0:g}".format(_r(sf * bbCoords.ZMax)))
+                    if currSetting.getType() == "nf2ff box":
+                        nf2ff_gridlines["x"].append(
+                            "{0:g}".format(_r(sf * bbCoords.XMin))
+                        )
+                        nf2ff_gridlines["x"].append(
+                            "{0:g}".format(_r(sf * bbCoords.XMax))
+                        )
+                        nf2ff_gridlines["y"].append(
+                            "{0:g}".format(_r(sf * bbCoords.YMin))
+                        )
+                        nf2ff_gridlines["y"].append(
+                            "{0:g}".format(_r(sf * bbCoords.YMax))
+                        )
+                        nf2ff_gridlines["z"].append(
+                            "{0:g}".format(_r(sf * bbCoords.ZMin))
+                        )
+                        nf2ff_gridlines["z"].append(
+                            "{0:g}".format(_r(sf * bbCoords.ZMax))
+                        )
 
-        writeNF2FFlines = (len(nf2ff_gridlines['x']) > 0) or (len(nf2ff_gridlines['y']) > 0) or (
-                    len(nf2ff_gridlines['z']) > 0)
+        writeNF2FFlines = (
+            (len(nf2ff_gridlines["x"]) > 0)
+            or (len(nf2ff_gridlines["y"]) > 0)
+            or (len(nf2ff_gridlines["z"]) > 0)
+        )
 
         if writeNF2FFlines:
             genScript += "#######################################################################################################################################\n"
@@ -900,12 +1202,24 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             genScript += "mesh.y = np.array([])\n"
             genScript += "mesh.z = np.array([])\n"
 
-            if (len(nf2ff_gridlines['x']) > 0):
-                genScript += "mesh.x = np.append(mesh.x, [" + ", ".join(str(i) for i in nf2ff_gridlines['x']) + "])\n"
-            if (len(nf2ff_gridlines['y']) > 0):
-                genScript += "mesh.y = np.append(mesh.y, [" + ", ".join(str(i) for i in nf2ff_gridlines['y']) + "])\n"
-            if (len(nf2ff_gridlines['z']) > 0):
-                genScript += "mesh.z = np.append(mesh.z, [" + ", ".join(str(i) for i in nf2ff_gridlines['z']) + "])\n"
+            if len(nf2ff_gridlines["x"]) > 0:
+                genScript += (
+                    "mesh.x = np.append(mesh.x, ["
+                    + ", ".join(str(i) for i in nf2ff_gridlines["x"])
+                    + "])\n"
+                )
+            if len(nf2ff_gridlines["y"]) > 0:
+                genScript += (
+                    "mesh.y = np.append(mesh.y, ["
+                    + ", ".join(str(i) for i in nf2ff_gridlines["y"])
+                    + "])\n"
+                )
+            if len(nf2ff_gridlines["z"]) > 0:
+                genScript += (
+                    "mesh.z = np.append(mesh.z, ["
+                    + ", ".join(str(i) for i in nf2ff_gridlines["z"])
+                    + "])\n"
+                )
 
             genScript += "openEMS_grid.AddLine('x', mesh.x)\n"
             genScript += "openEMS_grid.AddLine('y', mesh.y)\n"
@@ -919,9 +1233,13 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if (not items) or (meshPrioritiesCount == 0):
             return ""
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        refUnitStr = self.form.simParamsDeltaUnitList.currentText()
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        self.form.simParamsDeltaUnitList.currentText()
+        sf = (
+            self.getFreeCADUnitLength_m() / refUnit
+        )  # scaling factor for FreeCAD units to drawing units
 
         genScript = "#######################################################################################################################################\n"
         genScript += "# GRID LINES\n"
@@ -930,41 +1248,59 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         # Create lists and dict to be able to resolve ordered list of (grid settings instance <-> FreeCAD object) associations.
         # In its current form, this implies user-defined grid lines have to be associated with the simulation volume.
-        _assoc = lambda idx: list(map(str.strip, self.form.meshPriorityTreeView.topLevelItem(idx).text(0).split(',')))
+        def _assoc(idx):
+            return list(
+                map(
+                    str.strip,
+                    self.form.meshPriorityTreeView.topLevelItem(idx).text(0).split(","),
+                )
+            )
+
         orderedAssociations = [_assoc(k) for k in reversed(range(meshPrioritiesCount))]
-        gridSettingsNodeNames = [gridSettingsNode.text(0) for [gridSettingsNode, gridSettingsInst] in items]
+        gridSettingsNodeNames = [
+            gridSettingsNode.text(0) for [gridSettingsNode, gridSettingsInst] in items
+        ]
         fcObjects = {obj.Label: obj for obj in self.cadHelpers.getObjects()}
 
         for gridSettingsNodeName in gridSettingsNodeNames:
             print("Grid type : " + gridSettingsNodeName)
 
-        for k, [categoryName, gridName, FreeCADObjectName] in enumerate(orderedAssociations):
+        for k, [categoryName, gridName, FreeCADObjectName] in enumerate(
+            orderedAssociations
+        ):
+            print(
+                "Grid priority level {} : {} :: {}".format(
+                    k, FreeCADObjectName, gridName
+                )
+            )
 
-            print("Grid priority level {} : {} :: {}".format(k, FreeCADObjectName, gridName))
-
-            if not (gridName in gridSettingsNodeNames):
+            if gridName not in gridSettingsNodeNames:
                 print("Failed to resolve '{}'.".format(gridName))
                 continue
             itemListIdx = gridSettingsNodeNames.index(gridName)
 
-            #GridSettingsItem object from GUI
+            # GridSettingsItem object from GUI
             gridSettingsInst = items[itemListIdx][1]
 
-            #Grid category object from GUI
+            # Grid category object from GUI
             gridCategoryObj = items[itemListIdx][0]
 
             #
             #   Fixed Distance, Fixed Count mesh boundaries coords obtain
             #
-            if (gridSettingsInst.getType() in ['Fixed Distance', 'Fixed Count', 'User Defined']):
+            if gridSettingsInst.getType() in [
+                "Fixed Distance",
+                "Fixed Count",
+                "User Defined",
+            ]:
                 fcObject = fcObjects.get(FreeCADObjectName, None)
-                if (not fcObject):
+                if not fcObject:
                     print("Failed to resolve '{}'.".format(FreeCADObjectName))
                     continue
 
                 ### Produce script output.
 
-                if (not "Shape" in dir(fcObject)):
+                if "Shape" not in dir(fcObject):
                     continue
 
                 bbCoords = fcObject.Shape.BoundBox
@@ -974,48 +1310,91 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 deltaZ = 0
                 if gridSettingsInst.generateLinesInside:
                     gridOffset = gridSettingsInst.getGridOffset()
-                    unitsAsNumber = gridSettingsInst.getUnitsAsNumber(gridOffset['units'])
+                    unitsAsNumber = gridSettingsInst.getUnitsAsNumber(
+                        gridOffset["units"]
+                    )
                     if gridSettingsInst.xenabled:
-                        deltaX = gridOffset['x'] * unitsAsNumber * (1/self.getUnitLengthFromUI_m())
-                        print(f"GRID generateLinesInside object detected, delta in X: {deltaX}")
+                        deltaX = (
+                            gridOffset["x"]
+                            * unitsAsNumber
+                            * (1 / self.getUnitLengthFromUI_m())
+                        )
+                        print(
+                            f"GRID generateLinesInside object detected, delta in X: {deltaX}"
+                        )
                     if gridSettingsInst.yenabled:
-                        deltaY = gridOffset['y'] * unitsAsNumber * (1/self.getUnitLengthFromUI_m())
-                        print(f"GRID generateLinesInside object detected, delta in Y: {deltaY}")
+                        deltaY = (
+                            gridOffset["y"]
+                            * unitsAsNumber
+                            * (1 / self.getUnitLengthFromUI_m())
+                        )
+                        print(
+                            f"GRID generateLinesInside object detected, delta in Y: {deltaY}"
+                        )
                     if gridSettingsInst.zenabled:
-                        deltaZ = gridOffset['z'] * unitsAsNumber * (1/self.getUnitLengthFromUI_m())
-                        print(f"GRID generateLinesInside object detected, delta in Z: {deltaZ}")
+                        deltaZ = (
+                            gridOffset["z"]
+                            * unitsAsNumber
+                            * (1 / self.getUnitLengthFromUI_m())
+                        )
+                        print(
+                            f"GRID generateLinesInside object detected, delta in Z: {deltaZ}"
+                        )
 
-                xmax = sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
-                ymax = sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
-                zmax = sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
-                xmin = sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
-                ymin = sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
-                zmin = sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
+                xmax = (
+                    sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
+                )
+                ymax = (
+                    sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
+                )
+                zmax = (
+                    sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
+                )
+                xmin = (
+                    sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
+                )
+                ymin = (
+                    sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
+                )
+                zmin = (
+                    sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
+                )
 
                 # Write grid definition.
-                genScript += "## GRID - " + gridSettingsInst.getName() + " - " + FreeCADObjectName + ' (' + gridSettingsInst.getType() + ")\n"
+                genScript += (
+                    "## GRID - "
+                    + gridSettingsInst.getName()
+                    + " - "
+                    + FreeCADObjectName
+                    + " ("
+                    + gridSettingsInst.getType()
+                    + ")\n"
+                )
 
             #
             #   Smooth Mesh boundaries coords obtain
             #
-            elif (gridSettingsInst.getType() == "Smooth Mesh"):
-
+            elif gridSettingsInst.getType() == "Smooth Mesh":
                 xList = []
                 yList = []
                 zList = []
 
-                #iterate over grid smooth mesh category freecad children
+                # iterate over grid smooth mesh category freecad children
                 for k in range(gridCategoryObj.childCount()):
                     FreeCADObjectName = gridCategoryObj.child(k).text(0)
 
                     fcObject = fcObjects.get(FreeCADObjectName, None)
-                    if (not fcObject):
-                        print("Smooth Mesh - Failed to resolve '{}'.".format(FreeCADObjectName))
+                    if not fcObject:
+                        print(
+                            "Smooth Mesh - Failed to resolve '{}'.".format(
+                                FreeCADObjectName
+                            )
+                        )
                         continue
 
                     ### Produce script output.
 
-                    if (not "Shape" in dir(fcObject)):
+                    if "Shape" not in dir(fcObject):
                         continue
 
                     bbCoords = fcObject.Shape.BoundBox
@@ -1025,29 +1404,75 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                     deltaZ = 0
                     if gridSettingsInst.generateLinesInside:
                         gridOffset = gridSettingsInst.getGridOffset()
-                        unitsAsNumber = gridSettingsInst.getUnitsAsNumber(gridOffset['units'])
+                        unitsAsNumber = gridSettingsInst.getUnitsAsNumber(
+                            gridOffset["units"]
+                        )
                         if gridSettingsInst.xenabled:
-                            deltaX = gridOffset['x'] * unitsAsNumber * (1 / self.getUnitLengthFromUI_m())
-                            print(f"GRID generateLinesInside object detected, delta in X: {deltaX}")
+                            deltaX = (
+                                gridOffset["x"]
+                                * unitsAsNumber
+                                * (1 / self.getUnitLengthFromUI_m())
+                            )
+                            print(
+                                f"GRID generateLinesInside object detected, delta in X: {deltaX}"
+                            )
                         if gridSettingsInst.yenabled:
-                            deltaY = gridOffset['y'] * unitsAsNumber * (1 / self.getUnitLengthFromUI_m())
-                            print(f"GRID generateLinesInside object detected, delta in Y: {deltaY}")
+                            deltaY = (
+                                gridOffset["y"]
+                                * unitsAsNumber
+                                * (1 / self.getUnitLengthFromUI_m())
+                            )
+                            print(
+                                f"GRID generateLinesInside object detected, delta in Y: {deltaY}"
+                            )
                         if gridSettingsInst.zenabled:
-                            deltaZ = gridOffset['z'] * unitsAsNumber * (1 / self.getUnitLengthFromUI_m())
-                            print(f"GRID generateLinesInside object detected, delta in Z: {deltaZ}")
+                            deltaZ = (
+                                gridOffset["z"]
+                                * unitsAsNumber
+                                * (1 / self.getUnitLengthFromUI_m())
+                            )
+                            print(
+                                f"GRID generateLinesInside object detected, delta in Z: {deltaZ}"
+                            )
 
-                    #append boundary coordinates into list
-                    xList.append(sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX)
-                    yList.append(sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY)
-                    zList.append(sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ)
-                    xList.append(sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX)
-                    yList.append(sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY)
-                    zList.append(sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ)
+                    # append boundary coordinates into list
+                    xList.append(
+                        sf * bbCoords.XMax
+                        - np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
+                    )
+                    yList.append(
+                        sf * bbCoords.YMax
+                        - np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
+                    )
+                    zList.append(
+                        sf * bbCoords.ZMax
+                        - np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
+                    )
+                    xList.append(
+                        sf * bbCoords.XMin
+                        + np.sign(bbCoords.XMax - bbCoords.XMin) * deltaX
+                    )
+                    yList.append(
+                        sf * bbCoords.YMin
+                        + np.sign(bbCoords.YMax - bbCoords.YMin) * deltaY
+                    )
+                    zList.append(
+                        sf * bbCoords.ZMin
+                        + np.sign(bbCoords.ZMax - bbCoords.ZMin) * deltaZ
+                    )
 
                     # Write grid definition.
-                    genScript += "## GRID - " + gridSettingsInst.getName() + " - " + FreeCADObjectName + ' (' + gridSettingsInst.getType() + ")\n"
+                    genScript += (
+                        "## GRID - "
+                        + gridSettingsInst.getName()
+                        + " - "
+                        + FreeCADObjectName
+                        + " ("
+                        + gridSettingsInst.getType()
+                        + ")\n"
+                    )
 
-                #order from min -> max coordinates in each list
+                # order from min -> max coordinates in each list
                 xList.sort()
                 yList.sort()
                 zList.sort()
@@ -1056,80 +1481,130 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             #   Real octave mesh lines code generate starts here
             #
 
-            #in case of cylindrical coordinates convert xyz to theta,r,z
+            # in case of cylindrical coordinates convert xyz to theta,r,z
             yParam = None
-            if (gridSettingsInst.coordsType == "cylindrical"):
-                #FROM GUI ARE GOING DEGREES
+            if gridSettingsInst.coordsType == "cylindrical":
+                # FROM GUI ARE GOING DEGREES
 
                 #
                 #   Here calculate right r, theta, z from boundaries of object, it depends if origin lays inside boundaries or where object is positioned.
                 #
-                xmin, xmax, ymin, ymax, zmin, zmax = gridSettingsInst.getCartesianAsCylindricalCoords(bbCoords, xmin, xmax, ymin, ymax, zmin, zmax)
+                xmin, xmax, ymin, ymax, zmin, zmax = (
+                    gridSettingsInst.getCartesianAsCylindricalCoords(
+                        bbCoords, xmin, xmax, ymin, ymax, zmin, zmax
+                    )
+                )
 
-                if (gridSettingsInst.getType() == 'Smooth Mesh' and gridSettingsInst.unitsAngle == "deg"):
-                    yParam = math.radians(gridSettingsInst.smoothMesh['yMaxRes'])
-                elif (gridSettingsInst.getType() == 'Fixed Distance' and gridSettingsInst.unitsAngle == "deg"):
-                    yParam = math.radians(gridSettingsInst.getXYZ(refUnit)['y'])
-                elif (gridSettingsInst.getType() == 'User Defined'):
+                if (
+                    gridSettingsInst.getType() == "Smooth Mesh"
+                    and gridSettingsInst.unitsAngle == "deg"
+                ):
+                    yParam = math.radians(gridSettingsInst.smoothMesh["yMaxRes"])
+                elif (
+                    gridSettingsInst.getType() == "Fixed Distance"
+                    and gridSettingsInst.unitsAngle == "deg"
+                ):
+                    yParam = math.radians(gridSettingsInst.getXYZ(refUnit)["y"])
+                elif gridSettingsInst.getType() == "User Defined":
                     pass  # user defined is jaust text, doesn't have ['y']
                 else:
-                    yParam = gridSettingsInst.getXYZ(refUnit)['y']
-                #z coordinate stays as was
+                    yParam = gridSettingsInst.getXYZ(refUnit)["y"]
+                # z coordinate stays as was
 
             else:
-                if (gridSettingsInst.getType() == 'Smooth Mesh'):
-                    yParam = gridSettingsInst.smoothMesh['yMaxRes']
-                elif (gridSettingsInst.getType() == 'User Defined'):
-                    pass                                                #user defined is just text, doesn't have ['y']
+                if gridSettingsInst.getType() == "Smooth Mesh":
+                    yParam = gridSettingsInst.smoothMesh["yMaxRes"]
+                elif gridSettingsInst.getType() == "User Defined":
+                    pass  # user defined is just text, doesn't have ['y']
                 else:
-                    yParam = gridSettingsInst.getXYZ(refUnit)['y']
+                    yParam = gridSettingsInst.getXYZ(refUnit)["y"]
 
-            if (gridSettingsInst.getType() == 'Fixed Distance'):
+            if gridSettingsInst.getType() == "Fixed Distance":
                 if gridSettingsInst.xenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
-                    genScript += "mesh.x = np.concatenate((mesh.x, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(_r(xmin), _r(xmax), _r(gridSettingsInst.getXYZ(refUnit)['x']))
+                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(
+                            _r(xmin), _r(xmax)
+                        )
+                    genScript += "mesh.x = np.concatenate((mesh.x, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(
+                        _r(xmin), _r(xmax), _r(gridSettingsInst.getXYZ(refUnit)["x"])
+                    )
                 if gridSettingsInst.yenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
-                    genScript += "mesh.y = np.concatenate((mesh.y, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(_r(ymin),_r(ymax),_r(yParam))
+                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(
+                            _r(ymin), _r(ymax)
+                        )
+                    genScript += "mesh.y = np.concatenate((mesh.y, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(
+                        _r(ymin), _r(ymax), _r(yParam)
+                    )
                 if gridSettingsInst.zenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
-                    genScript += "mesh.z = np.concatenate((mesh.z, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(_r(zmin),_r(zmax),_r(gridSettingsInst.getXYZ(refUnit)['z']))
+                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(
+                            _r(zmin), _r(zmax)
+                        )
+                    genScript += "mesh.z = np.concatenate((mesh.z, arangeWithEndpoint({0:g},{1:g},{2:g})))\n".format(
+                        _r(zmin), _r(zmax), _r(gridSettingsInst.getXYZ(refUnit)["z"])
+                    )
 
-            elif (gridSettingsInst.getType() == 'Fixed Count'):
+            elif gridSettingsInst.getType() == "Fixed Count":
                 if gridSettingsInst.xenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
-                    if (not gridSettingsInst.getXYZ()['x'] == 1):
-                        genScript += "mesh.x = np.concatenate((mesh.x, linspace({0:g},{1:g},{2:g})))\n".format(_r(xmin), _r(xmax), _r(gridSettingsInst.getXYZ(refUnit)['x']))
+                        genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(
+                            _r(xmin), _r(xmax)
+                        )
+                    if not gridSettingsInst.getXYZ()["x"] == 1:
+                        genScript += "mesh.x = np.concatenate((mesh.x, linspace({0:g},{1:g},{2:g})))\n".format(
+                            _r(xmin),
+                            _r(xmax),
+                            _r(gridSettingsInst.getXYZ(refUnit)["x"]),
+                        )
                     else:
-                        genScript += "mesh.x = np.append(mesh.x, {0:g})\n".format(_r((xmin + xmax) / 2))
+                        genScript += "mesh.x = np.append(mesh.x, {0:g})\n".format(
+                            _r((xmin + xmax) / 2)
+                        )
 
                 if gridSettingsInst.yenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
-                    if (not gridSettingsInst.getXYZ()['y'] == 1):
-                        genScript += "mesh.y = np.concatenate((mesh.y, linspace({0:g},{1:g},{2:g})))\n".format(_r(ymin), _r(ymax), _r(yParam))
+                        genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(
+                            _r(ymin), _r(ymax)
+                        )
+                    if not gridSettingsInst.getXYZ()["y"] == 1:
+                        genScript += "mesh.y = np.concatenate((mesh.y, linspace({0:g},{1:g},{2:g})))\n".format(
+                            _r(ymin), _r(ymax), _r(yParam)
+                        )
                     else:
-                        genScript += "mesh.y = np.append(mesh.y, {0:g})\n".format(_r((ymin + ymax) / 2))
+                        genScript += "mesh.y = np.append(mesh.y, {0:g})\n".format(
+                            _r((ymin + ymax) / 2)
+                        )
 
                 if gridSettingsInst.zenabled:
                     if gridSettingsInst.topPriorityLines:
-                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
-                    if (not gridSettingsInst.getXYZ()['z'] == 1):
-                        genScript += "mesh.z = np.concatenate((mesh.z, linspace({0:g},{1:g},{2:g})))\n".format(_r(zmin), _r(zmax), _r(gridSettingsInst.getXYZ(refUnit)['z']))
+                        genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(
+                            _r(zmin), _r(zmax)
+                        )
+                    if not gridSettingsInst.getXYZ()["z"] == 1:
+                        genScript += "mesh.z = np.concatenate((mesh.z, linspace({0:g},{1:g},{2:g})))\n".format(
+                            _r(zmin),
+                            _r(zmax),
+                            _r(gridSettingsInst.getXYZ(refUnit)["z"]),
+                        )
                     else:
-                        genScript += "mesh.z = np.append(mesh.z, {0:g})\n".format(_r((zmin + zmax) / 2))
+                        genScript += "mesh.z = np.append(mesh.z, {0:g})\n".format(
+                            _r((zmin + zmax) / 2)
+                        )
 
-            elif (gridSettingsInst.getType() == 'User Defined'):
+            elif gridSettingsInst.getType() == "User Defined":
                 if gridSettingsInst.xenabled and gridSettingsInst.topPriorityLines:
-                    genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(_r(xmin), _r(xmax))
+                    genScript += "mesh.x = np.delete(mesh.x, np.argwhere((mesh.x >= {0:g}) & (mesh.x <= {1:g})))\n".format(
+                        _r(xmin), _r(xmax)
+                    )
                 if gridSettingsInst.yenabled and gridSettingsInst.topPriorityLines:
-                    genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(_r(ymin), _r(ymax))
+                    genScript += "mesh.y = np.delete(mesh.y, np.argwhere((mesh.y >= {0:g}) & (mesh.y <= {1:g})))\n".format(
+                        _r(ymin), _r(ymax)
+                    )
                 if gridSettingsInst.zenabled and gridSettingsInst.topPriorityLines:
-                    genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(_r(zmin), _r(zmax))
+                    genScript += "mesh.z = np.delete(mesh.z, np.argwhere((mesh.z >= {0:g}) & (mesh.z <= {1:g})))\n".format(
+                        _r(zmin), _r(zmax)
+                    )
 
                 genScript += "xmin = {0:g}\n".format(_r(xmin))
                 genScript += "xmax = {0:g}\n".format(_r(xmax))
@@ -1139,46 +1614,50 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 genScript += "zmax = {0:g}\n".format(_r(zmax))
                 genScript += gridSettingsInst.getXYZ() + "\n"
 
-            elif (gridSettingsInst.getType() == 'Smooth Mesh'):
+            elif gridSettingsInst.getType() == "Smooth Mesh":
                 string = "smoothMesh = {}\n"
 
                 axes_smooth_settings = {
-                    'x': {
-                        'axis': 'x',
-                        'enabled': gridSettingsInst.xenabled,
-                        'max_res': gridSettingsInst.smoothMesh['xMaxRes'],
-                        'mesh_lines': xList,
-                        'ref_unit': yParam,
+                    "x": {
+                        "axis": "x",
+                        "enabled": gridSettingsInst.xenabled,
+                        "max_res": gridSettingsInst.smoothMesh["xMaxRes"],
+                        "mesh_lines": xList,
+                        "ref_unit": yParam,
                     },
-                    'y': {
-                        'axis': 'y',
-                        'enabled': gridSettingsInst.yenabled,
-                        'max_res': gridSettingsInst.smoothMesh['yMaxRes'],
-                        'mesh_lines': yList,
-                        'ref_unit': yParam,
+                    "y": {
+                        "axis": "y",
+                        "enabled": gridSettingsInst.yenabled,
+                        "max_res": gridSettingsInst.smoothMesh["yMaxRes"],
+                        "mesh_lines": yList,
+                        "ref_unit": yParam,
                     },
-                    'z': {
-                        'axis': 'z',
-                        'enabled': gridSettingsInst.zenabled,
-                        'max_res': gridSettingsInst.smoothMesh['zMaxRes'],
-                        'mesh_lines': zList,
-                        'ref_unit': yParam,
+                    "z": {
+                        "axis": "z",
+                        "enabled": gridSettingsInst.zenabled,
+                        "max_res": gridSettingsInst.smoothMesh["zMaxRes"],
+                        "mesh_lines": zList,
+                        "ref_unit": yParam,
                     },
                 }
 
                 for axis_settings in axes_smooth_settings.values():
-                    axis = axis_settings['axis']
-                    mesh_lines = axis_settings['mesh_lines']
-                    ref_unit = axis_settings['ref_unit']
+                    axis = axis_settings["axis"]
+                    mesh_lines = axis_settings["mesh_lines"]
+                    ref_unit = axis_settings["ref_unit"]
 
-                    if not axis_settings['enabled']:
+                    if not axis_settings["enabled"]:
                         continue
-                    #when top priority lines setting set, remove lines between min and max in ax direction
-                    if gridSettingsInst.topPriorityLines and mesh_lines and len(mesh_lines) >= 2:
+                    # when top priority lines setting set, remove lines between min and max in ax direction
+                    if (
+                        gridSettingsInst.topPriorityLines
+                        and mesh_lines
+                        and len(mesh_lines) >= 2
+                    ):
                         string += f"mesh.{axis} = np.delete(mesh.{axis}, np.argwhere((mesh.{axis} >= {_r(mesh_lines[0]):g}) & (mesh.{axis} <= {mesh_lines[1]:g})))\n"
 
                     _ref_unit = str(ref_unit)
-                    if axis_settings["max_res"]== 0:
+                    if axis_settings["max_res"] == 0:
                         # Use the excitation resolution
                         string += "# max_res calculated in excitation part\n"
                         _ref_unit = "mas_ref/unit"
@@ -1187,15 +1666,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
                 genScript += string + "\n"
 
-        return '\n'.join([
-            genScript,
-            "",
-            "openEMS_grid.AddLine('x', mesh.x)",
-            "openEMS_grid.AddLine('y', mesh.y)",
-            "openEMS_grid.AddLine('z', mesh.z)",
-            ""
-        ])
-
+        return "\n".join(
+            [
+                genScript,
+                "",
+                "openEMS_grid.AddLine('x', mesh.x)",
+                "openEMS_grid.AddLine('y', mesh.y)",
+                "openEMS_grid.AddLine('z', mesh.z)",
+                "",
+            ]
+        )
 
     def getOrderedGridDefinitionsScriptLines_old_01(self, items):
         if (not items) or (meshPrioritiesCount == 0):
@@ -1203,9 +1683,13 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         meshPrioritiesCount = self.form.meshPriorityTreeView.topLevelItemCount()
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
         refUnitStr = self.form.simParamsDeltaUnitList.currentText()
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        sf = (
+            self.getFreeCADUnitLength_m() / refUnit
+        )  # scaling factor for FreeCAD units to drawing units
 
         genScript = "#######################################################################################################################################\n"
         genScript += "# GRID LINES\n"
@@ -1214,32 +1698,46 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         # Create lists and dict to be able to resolve ordered list of (grid settings instance <-> FreeCAD object) associations.
         # In its current form, this implies user-defined grid lines have to be associated with the simulation volume.
-        _assoc = lambda idx: list(map(str.strip, self.form.meshPriorityTreeView.topLevelItem(idx).text(0).split(',')))
+        def _assoc(idx):
+            return list(
+                map(
+                    str.strip,
+                    self.form.meshPriorityTreeView.topLevelItem(idx).text(0).split(","),
+                )
+            )
+
         orderedAssociations = [_assoc(k) for k in reversed(range(meshPrioritiesCount))]
-        gridSettingsNodeNames = [gridSettingsNode.text(0) for [gridSettingsNode, gridSettingsInst] in items]
+        gridSettingsNodeNames = [
+            gridSettingsNode.text(0) for [gridSettingsNode, gridSettingsInst] in items
+        ]
         fcObjects = {obj.Label: obj for obj in self.cadHelpers.getObjects()}
 
         for gridSettingsNodeName in gridSettingsNodeNames:
             print("Grid type : " + gridSettingsNodeName)
 
-        for k, [categoryName, gridName, FreeCADObjectName] in enumerate(orderedAssociations):
+        for k, [categoryName, gridName, FreeCADObjectName] in enumerate(
+            orderedAssociations
+        ):
+            print(
+                "Grid priority level {} : {} :: {}".format(
+                    k, FreeCADObjectName, gridName
+                )
+            )
 
-            print("Grid priority level {} : {} :: {}".format(k, FreeCADObjectName, gridName))
-
-            if not (gridName in gridSettingsNodeNames):
+            if gridName not in gridSettingsNodeNames:
                 print("Failed to resolve '{}'.".format(gridName))
                 continue
             itemListIdx = gridSettingsNodeNames.index(gridName)
             gridSettingsInst = items[itemListIdx][1]
 
             fcObject = fcObjects.get(FreeCADObjectName, None)
-            if (not fcObject):
+            if not fcObject:
                 print("Failed to resolve '{}'.".format(FreeCADObjectName))
                 continue
 
             ### Produce script output.
 
-            if (not "Shape" in dir(fcObject)):
+            if "Shape" not in dir(fcObject):
                 continue
 
             bbCoords = fcObject.Shape.BoundBox
@@ -1247,45 +1745,71 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             # If generateLinesInside is selected, grid line region is shifted inward by lambda/20.
             if gridSettingsInst.generateLinesInside:
                 delta = self.maxGridResolution_m / refUnit
-                print("GRID generateLinesInside object detected, setting correction constant to " + str(
-                    delta) + " " + refUnitStr)
+                print(
+                    "GRID generateLinesInside object detected, setting correction constant to "
+                    + str(delta)
+                    + " "
+                    + refUnitStr
+                )
             else:
                 delta = 0
 
             #
-            #	THIS IS HARD WIRED HERE, NEED TO BE CHANGED, LuboJ, September 2022
+            # THIS IS HARD WIRED HERE, NEED TO BE CHANGED, LuboJ, September 2022
             #
             # DEBUG - DISABLED - generate grid inside using 1/20 of maximum lambda, it's not that equation,
-            #	ie. for 3.4GHz simulation 1/20th is 4mm what is wrong for delta to generate
-            #	gridlines inside object, must be much much lower like 10times
+            # ie. for 3.4GHz simulation 1/20th is 4mm what is wrong for delta to generate
+            # gridlines inside object, must be much much lower like 10times
             delta = 0
-            debugHardLimit = 0.1e-3  # debug hard limit to get gridlines inside STL objects
+            debugHardLimit = (
+                0.1e-3  # debug hard limit to get gridlines inside STL objects
+            )
 
             # Write grid definition.
-            genScript += "## GRID - " + gridSettingsInst.getName() + " - " + FreeCADObjectName + ' (' + gridSettingsInst.getType() + ")\n"
+            genScript += (
+                "## GRID - "
+                + gridSettingsInst.getName()
+                + " - "
+                + FreeCADObjectName
+                + " ("
+                + gridSettingsInst.getType()
+                + ")\n"
+            )
 
             axes_grid_settings = {
-                'x': {
+                "x": {
                     "axis": "x",
                     "enabled": gridSettingsInst.xenabled,
-                    "min": sf * bbCoords.XMin + np.sign(bbCoords.XMax - bbCoords.XMin) * delta + debugHardLimit,
-                    "max": sf * bbCoords.XMax - np.sign(bbCoords.XMax - bbCoords.XMin) * delta - debugHardLimit,
-                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['x'],
+                    "min": sf * bbCoords.XMin
+                    + np.sign(bbCoords.XMax - bbCoords.XMin) * delta
+                    + debugHardLimit,
+                    "max": sf * bbCoords.XMax
+                    - np.sign(bbCoords.XMax - bbCoords.XMin) * delta
+                    - debugHardLimit,
+                    "ref_unit": gridSettingsInst.getXYZ(refUnit)["x"],
                 },
-                'y': {
+                "y": {
                     "axis": "y",
                     "enabled": gridSettingsInst.yenabled,
-                    "min": sf * bbCoords.YMin + np.sign(bbCoords.YMax - bbCoords.YMin) * delta + debugHardLimit,
-                    "max": sf * bbCoords.YMax - np.sign(bbCoords.YMax - bbCoords.YMin) * delta - debugHardLimit,
-                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['y'],
+                    "min": sf * bbCoords.YMin
+                    + np.sign(bbCoords.YMax - bbCoords.YMin) * delta
+                    + debugHardLimit,
+                    "max": sf * bbCoords.YMax
+                    - np.sign(bbCoords.YMax - bbCoords.YMin) * delta
+                    - debugHardLimit,
+                    "ref_unit": gridSettingsInst.getXYZ(refUnit)["y"],
                 },
-                'z': {
+                "z": {
                     "axis": "z",
                     "enabled": gridSettingsInst.zenabled,
-                    "min": sf * bbCoords.ZMin + np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta + debugHardLimit,
-                    "max": sf * bbCoords.ZMax - np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta - debugHardLimit,
-                    'ref_unit': gridSettingsInst.getXYZ(refUnit)['z'],
-                }
+                    "min": sf * bbCoords.ZMin
+                    + np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta
+                    + debugHardLimit,
+                    "max": sf * bbCoords.ZMax
+                    - np.sign(bbCoords.ZMax - bbCoords.ZMin) * delta
+                    - debugHardLimit,
+                    "ref_unit": gridSettingsInst.getXYZ(refUnit)["z"],
+                },
             }
 
             for axis_grid_setting in axes_grid_settings.values():
@@ -1300,16 +1824,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
                 if gridSettingsInst.topPriorityLines:
                     genScript += f"mesh.{axis} = np.delete(mesh.{axis}, np.argwhere((mesh.{axis} >= {_r(vmin):g}) & (mesh.x <= {_r(vmax):g})))\n"
 
-                if (gridSettingsInst.getType() == 'Fixed Distance'):
+                if gridSettingsInst.getType() == "Fixed Distance":
                     genScript += "mesh.{axis} = np.concatenate((mesh.{axis}, np.arange({_r(vmin):g},{_r(vmax}:g},{_r(ref_unit):g})))\n"
 
-                elif (gridSettingsInst.getType() == 'Fixed Count'):
-                    if (not gridSettingsInst.getXYZ()[{axis}] == 1):
+                elif gridSettingsInst.getType() == "Fixed Count":
+                    if not gridSettingsInst.getXYZ()[{axis}] == 1:
                         genScript += f"mesh.{axis} = np.concatenate((mesh.{axis}, linspace({_r(vmin):g},{_r(vmax):g},{_r(ref_unit):g})))\n"
                     else:
                         genScript += "mesh.{axis} = np.append(mesh.{axis}, {_r((xmin + xmax) / 2):g})\n"
 
-                elif (gridSettingsInst.getType() == 'User Defined'):
+                elif gridSettingsInst.getType() == "User Defined":
                     genScript += "mesh = " + gridSettingsInst.getXYZ() + "\n"
 
             genScript += "\n"
@@ -1321,73 +1845,78 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         return genScript
 
-
     def getInitScriptLines(self):
-        return '\n'.join([
-            "# To be run with python.",
-            "# FreeCAD to OpenEMS plugin by Lubomir Jagos, ",
-            "# see https://github.com/LubomirJagos/FreeCAD-OpenEMS-Export",
-            "#",
-            "# This file has been automatically generated. Manual changes may be overwritten.",
-            "#",
-            "### Import Libraries",
-            "import math",
-            "import numpy as np",
-            "import os, tempfile, shutil",
-            "from pylab import *",
-            "import csv",
-            "import CSXCAD",
-            "from openEMS import openEMS",
-            "from openEMS.physical_constants import *",
-            "",
-            "#",
-            "# FUNCTION TO CONVERT CARTESIAN TO CYLINDRICAL COORDINATES",
-            "#     returns coordinates in order [theta, r, z]",
-            "#",
-            "def cart2pol(pointCoords):",
-            "\ttheta = np.arctan2(pointCoords[1], pointCoords[0])",
-            "\tr = np.sqrt(pointCoords[0] ** 2 + pointCoords[1] ** 2)",
-            "\tz = pointCoords[2]",
-            "\treturn theta, r, z",
-            "",
-            "#",
-            "# FUNCTION TO GIVE RANGE WITH ENDPOINT INCLUDED arangeWithEndpoint(0,10,2.5) = [0, 2.5, 5, 7.5, 10]",
-            "#     returns coordinates in order [theta, r, z]",
-            "#",
-            "def arangeWithEndpoint(start, stop, step=1, endpoint=True):",
-            "\tif start == stop:",
-            "\t\treturn [start]",
-            "",
-            "\tarr = np.arange(start, stop, step)",
-            "\tif endpoint and arr[-1] + step == stop:",
-            "\t\tarr = np.concatenate([arr, [stop]])",
-            "\treturn arr",
-            "",
-            "# Change current path to script file folder",
-            "#",
-            "abspath = os.path.abspath(__file__)",
-            "dname = os.path.dirname(abspath)",
-            "os.chdir(dname)",
-            "## constants",
-            f"unit    = {self.getUnitLengthFromUI_m()} # Model coordinates and lengths will be specified in {self.form.simParamsDeltaUnitList.currentText()}."
-            f"fc_unit = {self.getFreeCADUnitLength_m()} # STL files are exported in FreeCAD standard units (mm).",
-            ""
-        ])
+        return "\n".join(
+            [
+                "# To be run with python.",
+                "# FreeCAD to OpenEMS plugin by Lubomir Jagos, ",
+                "# see https://github.com/LubomirJagos/FreeCAD-OpenEMS-Export",
+                "#",
+                "# This file has been automatically generated. Manual changes may be overwritten.",
+                "#",
+                "### Import Libraries",
+                "import math",
+                "import numpy as np",
+                "import os, tempfile, shutil",
+                "from pylab import *",
+                "import csv",
+                "import CSXCAD",
+                "from openEMS import openEMS",
+                "from openEMS.physical_constants import *",
+                "",
+                "#",
+                "# FUNCTION TO CONVERT CARTESIAN TO CYLINDRICAL COORDINATES",
+                "#     returns coordinates in order [theta, r, z]",
+                "#",
+                "def cart2pol(pointCoords):",
+                "\ttheta = np.arctan2(pointCoords[1], pointCoords[0])",
+                "\tr = np.sqrt(pointCoords[0] ** 2 + pointCoords[1] ** 2)",
+                "\tz = pointCoords[2]",
+                "\treturn theta, r, z",
+                "",
+                "#",
+                "# FUNCTION TO GIVE RANGE WITH ENDPOINT INCLUDED arangeWithEndpoint(0,10,2.5) = [0, 2.5, 5, 7.5, 10]",
+                "#     returns coordinates in order [theta, r, z]",
+                "#",
+                "def arangeWithEndpoint(start, stop, step=1, endpoint=True):",
+                "\tif start == stop:",
+                "\t\treturn [start]",
+                "",
+                "\tarr = np.arange(start, stop, step)",
+                "\tif endpoint and arr[-1] + step == stop:",
+                "\t\tarr = np.concatenate([arr, [stop]])",
+                "\treturn arr",
+                "",
+                "# Change current path to script file folder",
+                "#",
+                "abspath = os.path.abspath(__file__)",
+                "dname = os.path.dirname(abspath)",
+                "os.chdir(dname)",
+                "## constants",
+                f"unit    = {self.getUnitLengthFromUI_m()} # Model coordinates and lengths will be specified in {self.form.simParamsDeltaUnitList.currentText()}."
+                f"fc_unit = {self.getFreeCADUnitLength_m()} # STL files are exported in FreeCAD standard units (mm).",
+                "",
+            ]
+        )
 
     def getExcitationScriptLines(self, definitionsOnly=False):
-        excitationCategory = self.form.objectAssignmentRightTreeWidget.findItems("Excitation", QtCore.Qt.MatchFixedString)
+        excitationCategory = self.form.objectAssignmentRightTreeWidget.findItems(
+            "Excitation", QtCore.Qt.MatchFixedString
+        )
         if len(excitationCategory) <= 0:
             #  return early if no excitation is set
             self.guiHelpers.displayMessage("Missing excitation, please define one.")
             return ""
 
-        if (excitationCategory[0].childCount() <= 0):
+        if excitationCategory[0].childCount() <= 0:
             # Excitation isn't attached to anything
             return ""
 
         # FOR WHOLE SIMULATION THERE IS JUST ONE EXCITATION DEFINED, so first is taken!
         item = excitationCategory[0].child(0)
-        currSetting = item.data(0, QtCore.Qt.UserRole)  # At index 0 is Default Excitation.
+        currSetting = item.data(
+            0, QtCore.Qt.UserRole
+        )  # At index 0 is Default Excitation.
         # Currently only 1 excitation is allowed. Multiple excitations could be managed by setting one of them as "selected" or "active", while all others are deactivated.
         # This would help the user to manage different analysis scenarios / excitation ranges.
 
@@ -1412,7 +1941,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             return "FDTD.SetSinusExcite(f0)\n"
 
         def _write_gaussian_values(f0, fc, units):
-            return f"f0 = {f0}*{units}\nfc = {fc}*{units}\nmax_res = C0 / (f0+fc) / 20\n"
+            return (
+                f"f0 = {f0}*{units}\nfc = {fc}*{units}\nmax_res = C0 / (f0+fc) / 20\n"
+            )
 
         def _write_gaussian_function():
             return "FDTD.SetGaussExcite(f0, fc)\n"
@@ -1421,7 +1952,7 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
             return f"f0 = {f0}*{units}\nmax_res = 0\n"
 
         def _write_custom_function(f0, units, function):
-            func_str = function.replace('f0', float(f0)*float(units))
+            func_str = function.replace("f0", float(f0) * float(units))
             return f"FDTD.SetCustomExcite(f0, {func_str})\n"
 
         def _write_dirac_values(fm, units):
@@ -1436,46 +1967,50 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         def _write_step_function():
             return "FDTD.SetStepExcite(fm)\n"
 
-        genScript=""
-        if (source_type == 'sinusodial'):
-            f0 = currSetting.sinusodial['f0']
+        genScript = ""
+        if source_type == "sinusodial":
+            f0 = currSetting.sinusodial["f0"]
             genScript += _write_sinusoid_values(f0, units)
             if not definitionsOnly:
                 genScript += _write_sinusoid_function()
             self.maxGridResolution_m = c_ / (f0 * units * 20)
 
-        elif (source_type == 'gaussian'):
-            f0 = float(currSetting.gaussian['f0'])
-            fc = float(currSetting.gaussian['fc'])
+        elif source_type == "gaussian":
+            f0 = float(currSetting.gaussian["f0"])
+            fc = float(currSetting.gaussian["fc"])
             genScript += _write_gaussian_values(f0=f0, fc=fc, units=units)
             if not definitionsOnly:
                 genScript += _write_gaussian_function()
             self.maxGridResolution_m = c_ / (f0 * units * 20)
 
-        elif (source_type == 'custom'):
-            f0 = float(currSetting.custom['f0'])
-            functionStr = currSetting.custom['functionStr']
+        elif source_type == "custom":
+            f0 = float(currSetting.custom["f0"])
+            functionStr = currSetting.custom["functionStr"]
             genScript += _write_custom_values(f0=f0, units=units)
             if not definitionsOnly:
-                genScript += _write_custom_function(f0=f0, units=units, function=functionStr)
+                genScript += _write_custom_function(
+                    f0=f0, units=units, function=functionStr
+                )
             self.maxGridResolution_m = 0
 
-        elif (source_type == "step"):
-            fm = float(currSetting.step['fm'])
+        elif source_type == "step":
+            fm = float(currSetting.step["fm"])
             genScript += _write_step_values(fm=fm, units=units)
             if not definitionsOnly:
                 genScript += _write_step_function()
             self.maxGridResolution_m = c_ / (fm * units * 20)
 
-        elif (source_type == "dirac"):
-            fm = float(currSetting.dirac['fm'])
+        elif source_type == "dirac":
+            fm = float(currSetting.dirac["fm"])
             genScript += _write_dirac_values(fm=fm, units=units)
             if not definitionsOnly:
                 genScript += _write_dirac_function()
             self.maxGridResolution_m = c_ / (fm * units * 20)
 
         else:
-            self.guiHelpers.displayMessage(f"Error: Excitation {source_type} is unknown")
+            self.guiHelpers.displayMessage(
+                f"Error: Excitation {source_type} is unknown"
+            )
 
         _log.debug(genScript)
         genScript += "\n"
@@ -1488,13 +2023,29 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "# BOUNDARY CONDITIONS\n"
         genScript += "#######################################################################################################################################\n"
 
-        _bcStr = lambda pml_val, text: '\"PML_{}\"'.format(str(pml_val)) if text == 'PML' else '\"{}\"'.format(text)
+        def _bcStr(pml_val, text):
+            return (
+                '"PML_{}"'.format(str(pml_val))
+                if text == "PML"
+                else '"{}"'.format(text)
+            )
+
         strBC = ""
-        strBC += _bcStr(self.form.PMLxmincells.value(), self.form.BCxmin.currentText()) + ","
-        strBC += _bcStr(self.form.PMLxmaxcells.value(), self.form.BCxmax.currentText()) + ","
-        strBC += _bcStr(self.form.PMLymincells.value(), self.form.BCymin.currentText()) + ","
-        strBC += _bcStr(self.form.PMLymaxcells.value(), self.form.BCymax.currentText()) + ","
-        strBC += _bcStr(self.form.PMLzmincells.value(), self.form.BCzmin.currentText()) + ","
+        strBC += (
+            _bcStr(self.form.PMLxmincells.value(), self.form.BCxmin.currentText()) + ","
+        )
+        strBC += (
+            _bcStr(self.form.PMLxmaxcells.value(), self.form.BCxmax.currentText()) + ","
+        )
+        strBC += (
+            _bcStr(self.form.PMLymincells.value(), self.form.BCymin.currentText()) + ","
+        )
+        strBC += (
+            _bcStr(self.form.PMLymaxcells.value(), self.form.BCymax.currentText()) + ","
+        )
+        strBC += (
+            _bcStr(self.form.PMLzmincells.value(), self.form.BCzmin.currentText()) + ","
+        )
         strBC += _bcStr(self.form.PMLzmaxcells.value(), self.form.BCzmax.currentText())
 
         genScript += "BC = [" + strBC + "]\n"
@@ -1507,46 +2058,66 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         if not self.form.genParamMinGridSpacingEnable.isChecked():
             return ""
 
-        minSpacingX = self.form.genParamMinGridSpacingX.value() / 1000 / self.getUnitLengthFromUI_m()
-        minSpacingY = self.form.genParamMinGridSpacingY.value() / 1000 / self.getUnitLengthFromUI_m()
-        minSpacingZ = self.form.genParamMinGridSpacingZ.value() / 1000 / self.getUnitLengthFromUI_m()
+        minSpacingX = (
+            self.form.genParamMinGridSpacingX.value()
+            / 1000
+            / self.getUnitLengthFromUI_m()
+        )
+        minSpacingY = (
+            self.form.genParamMinGridSpacingY.value()
+            / 1000
+            / self.getUnitLengthFromUI_m()
+        )
+        minSpacingZ = (
+            self.form.genParamMinGridSpacingZ.value()
+            / 1000
+            / self.getUnitLengthFromUI_m()
+        )
 
-        return '\n'.join([
-            "#######################################################################################################################################",
-            "# MINIMAL GRIDLINES SPACING, removing gridlines which are closer as defined in GUI",
-            "#######################################################################################################################################",
-            'mesh.x = openEMS_grid.GetLines("x", True)',
-            'mesh.y = openEMS_grid.GetLines("y", True)',
-            'mesh.z = openEMS_grid.GetLines("z", True)',
-            '',
-            'openEMS_grid.ClearLines("x")',
-            'openEMS_grid.ClearLines("y")',
-            'openEMS_grid.ClearLines("z")',
-            '',
-            'for k in range(len(mesh.x)-1):',
-            '\tif (not np.isinf(mesh.x[k]) and abs(mesh.x[k+1]-mesh.x[k]) <= ' + str(minSpacingX) + '):',
-            '\t\tprint("Removnig line at x: " + str(mesh.x[k+1]))',
-            '\t\tmesh.x[k+1] = np.inf',
-            '',
-            'for k in range(len(mesh.y)-1):',
-            '\tif (not np.isinf(mesh.y[k]) and abs(mesh.y[k+1]-mesh.y[k]) <= ' + str(minSpacingY) + '):',
-            '\t\tprint("Removnig line at y: " + str(mesh.y[k+1]))',
-            '\t\tmesh.y[k+1] = np.inf',
-            '',
-            'for k in range(len(mesh.z)-1):',
-            '\tif (not np.isinf(mesh.z[k]) and abs(mesh.z[k+1]-mesh.z[k]) <= ' + str(minSpacingZ) + '):',
-            '\t\tprint("Removnig line at z: " + str(mesh.z[k+1]))',
-            '\t\tmesh.z[k+1] = np.inf',
-            '',
-            'mesh.x = mesh.x[~np.isinf(mesh.x)]',
-            'mesh.y = mesh.y[~np.isinf(mesh.y)]',
-            'mesh.z = mesh.z[~np.isinf(mesh.z)]',
-            '',
-            "openEMS_grid.AddLine('x', mesh.x)",
-            "openEMS_grid.AddLine('y', mesh.y)",
-            "openEMS_grid.AddLine('z', mesh.z)",
-            ""
-        ])
+        return "\n".join(
+            [
+                "#######################################################################################################################################",
+                "# MINIMAL GRIDLINES SPACING, removing gridlines which are closer as defined in GUI",
+                "#######################################################################################################################################",
+                'mesh.x = openEMS_grid.GetLines("x", True)',
+                'mesh.y = openEMS_grid.GetLines("y", True)',
+                'mesh.z = openEMS_grid.GetLines("z", True)',
+                "",
+                'openEMS_grid.ClearLines("x")',
+                'openEMS_grid.ClearLines("y")',
+                'openEMS_grid.ClearLines("z")',
+                "",
+                "for k in range(len(mesh.x)-1):",
+                "\tif (not np.isinf(mesh.x[k]) and abs(mesh.x[k+1]-mesh.x[k]) <= "
+                + str(minSpacingX)
+                + "):",
+                '\t\tprint("Removnig line at x: " + str(mesh.x[k+1]))',
+                "\t\tmesh.x[k+1] = np.inf",
+                "",
+                "for k in range(len(mesh.y)-1):",
+                "\tif (not np.isinf(mesh.y[k]) and abs(mesh.y[k+1]-mesh.y[k]) <= "
+                + str(minSpacingY)
+                + "):",
+                '\t\tprint("Removnig line at y: " + str(mesh.y[k+1]))',
+                "\t\tmesh.y[k+1] = np.inf",
+                "",
+                "for k in range(len(mesh.z)-1):",
+                "\tif (not np.isinf(mesh.z[k]) and abs(mesh.z[k+1]-mesh.z[k]) <= "
+                + str(minSpacingZ)
+                + "):",
+                '\t\tprint("Removnig line at z: " + str(mesh.z[k+1]))',
+                "\t\tmesh.z[k+1] = np.inf",
+                "",
+                "mesh.x = mesh.x[~np.isinf(mesh.x)]",
+                "mesh.y = mesh.y[~np.isinf(mesh.y)]",
+                "mesh.z = mesh.z[~np.isinf(mesh.z)]",
+                "",
+                "openEMS_grid.AddLine('x', mesh.x)",
+                "openEMS_grid.AddLine('y', mesh.y)",
+                "openEMS_grid.AddLine('z', mesh.z)",
+                "",
+            ]
+        )
 
     #########################################################################################################################
     #                                  _                       _       _          _ _      _            _
@@ -1558,14 +2129,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
     #   __/ |                                                   | |
     #  |___/
     #
-    #	GENERATE SCRIPT CLICKED - go through object assignment tree categories, output child item data.
+    # GENERATE SCRIPT CLICKED - go through object assignment tree categories, output child item data.
     #
     def generateOpenEMSScriptString(self):
         # Constants and variable initialization.
 
-        refUnit = self.getUnitLengthFromUI_m()  # Coordinates need to be given in drawing units
-        refUnitStr = self.form.simParamsDeltaUnitList.currentText()
-        sf = self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
+        refUnit = (
+            self.getUnitLengthFromUI_m()
+        )  # Coordinates need to be given in drawing units
+        self.form.simParamsDeltaUnitList.currentText()
+        self.getFreeCADUnitLength_m() / refUnit  # scaling factor for FreeCAD units to drawing units
 
         # List categories and items.
 
@@ -1598,7 +2171,13 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         genScript += "## prepare simulation folder\n"
         genScript += "Sim_Path = os.path.join(currDir, 'simulation_output')\n"
-        genScript += "Sim_CSX = '" + os.path.splitext(os.path.basename(self.cadHelpers.getCurrDocumentFileName()))[0] + ".xml'\n"
+        genScript += (
+            "Sim_CSX = '"
+            + os.path.splitext(
+                os.path.basename(self.cadHelpers.getCurrDocumentFileName())
+            )[0]
+            + ".xml'\n"
+        )
 
         genScript += "if os.path.exists(Sim_Path):\n"
         genScript += "\tshutil.rmtree(Sim_Path)   # clear previous directory\n"
@@ -1606,10 +2185,16 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "\n"
 
         genScript += "## setup FDTD parameter & excitation function\n"
-        genScript += "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
-        genScript += "min_decrement = " + str(self.form.simParamsMinDecrement.value()) + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        genScript += (
+            "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
+        )
+        genScript += (
+            "min_decrement = "
+            + str(self.form.simParamsMinDecrement.value())
+            + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        )
 
-        if (self.getModelCoordsType() == "cylindrical"):
+        if self.getModelCoordsType() == "cylindrical":
             genScript += "CSX = CSXCAD.ContinuousStructure(CoordSystem=1)\n"
             genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, CoordSystem=1)\n"
         else:
@@ -1621,7 +2206,9 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         print("======================== REPORT BEGIN ========================\n")
 
-        self.reportFreeCADItemSettings(itemsByClassName.get("FreeCADSettingsItem", None))
+        self.reportFreeCADItemSettings(
+            itemsByClassName.get("FreeCADSettingsItem", None)
+        )
 
         # Write boundary conditions definitions.
         genScript += self.getBoundaryConditionsScriptLines()
@@ -1636,22 +2223,34 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         materials = itemsByClassName.get("MaterialSettingsItem", None)
         if not materials:
             raise UserWarning("No items found")
-        genScript += self.getMaterialDefinitionsScriptLines(materials, outputDir=None, generateObjects=False)
+        genScript += self.getMaterialDefinitionsScriptLines(
+            materials, outputDir=None, generateObjects=False
+        )
 
         # Write grid definitions.
-        genScript += self.getOrderedGridDefinitionsScriptLines(itemsByClassName.get("GridSettingsItem", None))
+        genScript += self.getOrderedGridDefinitionsScriptLines(
+            itemsByClassName.get("GridSettingsItem", None)
+        )
 
         # Write port definitions.
-        genScript += self.getPortDefinitionsScriptLines(itemsByClassName.get("PortSettingsItem", None))
+        genScript += self.getPortDefinitionsScriptLines(
+            itemsByClassName.get("PortSettingsItem", None)
+        )
 
         # Write lumped part definitions.
-        genScript += self.getLumpedPartDefinitionsScriptLines(itemsByClassName.get("LumpedPartSettingsItem", None))
+        genScript += self.getLumpedPartDefinitionsScriptLines(
+            itemsByClassName.get("LumpedPartSettingsItem", None)
+        )
 
         # Write probes definitions
-        genScript += self.getProbeDefinitionsScriptLines(itemsByClassName.get("ProbeSettingsItem", None))
+        genScript += self.getProbeDefinitionsScriptLines(
+            itemsByClassName.get("ProbeSettingsItem", None)
+        )
 
         # Write NF2FF probe grid definitions.
-        genScript += self.getNF2FFDefinitionsScriptLines(itemsByClassName.get("ProbeSettingsItem", None))
+        genScript += self.getNF2FFDefinitionsScriptLines(
+            itemsByClassName.get("ProbeSettingsItem", None)
+        )
 
         # Write scriptlines which removes gridline too close, must be enabled in GUI, it's checking checkbox inside
         genScript += self.getMinimalGridlineSpacingScriptLines()
@@ -1660,30 +2259,33 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         # Finalize script.
 
-        genScript += '\n'.join([
-            "#######################################################################################################################################",
-            "# RUN",
-            "#######################################################################################################################################",
-            "### Run the simulation",
-            "CSX_file = os.path.join(Sim_Path, Sim_CSX)",
-            "if not os.path.exists(Sim_Path):",
-            "\tos.mkdir(Sim_Path)",
-            "CSX.Write2XML(CSX_file)",
-            "from CSXCAD import AppCSXCAD_BIN",
-            "os.system(AppCSXCAD_BIN + str(CSX_file))",
-            "",
-            f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)",
-            ""
-        ])
+        genScript += "\n".join(
+            [
+                "#######################################################################################################################################",
+                "# RUN",
+                "#######################################################################################################################################",
+                "### Run the simulation",
+                "CSX_file = os.path.join(Sim_Path, Sim_CSX)",
+                "if not os.path.exists(Sim_Path):",
+                "\tos.mkdir(Sim_Path)",
+                "CSX.Write2XML(CSX_file)",
+                "from CSXCAD import AppCSXCAD_BIN",
+                "os.system(AppCSXCAD_BIN + str(CSX_file))",
+                "",
+                f"FDTD.Run(Sim_Path, verbose=3, cleanup={cleanup}, setup_only=setup_only, debug_pec=debug_pec)",
+                "",
+            ]
+        )
 
         return genScript
 
-
     def generateOpenEMSScript(self, outputDir=None):
         # Write _OpenEMS.py script file to current directory.
-                # Update status bar to inform user that exporting has begun.
+        # Update status bar to inform user that exporting has begun.
         if self.statusBar is not None:
-            self.statusBar.showMessage("Generating OpenEMS script and geometry files ...", 5000)
+            self.statusBar.showMessage(
+                "Generating OpenEMS script and geometry files ...", 5000
+            )
             QtWidgets.QApplication.processEvents()
 
         currDir, nameBase = self.getCurrDir()
@@ -1698,23 +2300,35 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
 
         fileName = f"{outputDir}/{nameBase}_openEMS.py"
 
-        with open(fileName, "w", encoding='utf-8') as f:
+        with open(fileName, "w", encoding="utf-8") as f:
             f.write(self.generateOpenEMSScriptString())
 
         itemsByClassName = self.getItemsByClassName()
-        self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir=outputDir, generateObjects=True)
-
+        self.getMaterialDefinitionsScriptLines(
+            itemsByClassName.get("MaterialSettingsItem", None),
+            outputDir=outputDir,
+            generateObjects=True,
+        )
 
         # Show message or update status bar to inform user that exporting has finished.
 
-        self.guiHelpers.displayMessage('Simulation script written to: ' + fileName, forceModal=True)
-        print('Simulation script written to: ' + fileName)
+        self.guiHelpers.displayMessage(
+            "Simulation script written to: " + fileName, forceModal=True
+        )
+        print("Simulation script written to: " + fileName)
         return outputDir, fileName
 
     #
-    #	Write NF2FF Button clicked, generate script to display far field pattern
+    # Write NF2FF Button clicked, generate script to display far field pattern
     #
-    def writeNf2ffButtonClicked(self, outputDir=None, nf2ffBoxName="", nf2ffBoxInputPortName="", plotFrequency=0, freqCount=501):
+    def writeNf2ffButtonClicked(
+        self,
+        outputDir=None,
+        nf2ffBoxName="",
+        nf2ffBoxInputPortName="",
+        plotFrequency=0,
+        freqCount=501,
+    ):
         genScript = ""
         genScript += "# Plot far field for structure.\n"
         genScript += "#\n"
@@ -1727,15 +2341,23 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += "\n"
 
         genScript += "## setup FDTD parameter & excitation function\n"
-        genScript += "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
-        genScript += "min_decrement = " + str(self.form.simParamsMinDecrement.value()) + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        genScript += (
+            "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
+        )
+        genScript += (
+            "min_decrement = "
+            + str(self.form.simParamsMinDecrement.value())
+            + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        )
 
-        if (self.getModelCoordsType() == "cylindrical"):
+        if self.getModelCoordsType() == "cylindrical":
             genScript += "CSX = CSXCAD.ContinuousStructure(CoordSystem=1)\n"
             genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, CoordSystem=1)\n"
         else:
             genScript += "CSX = CSXCAD.ContinuousStructure()\n"
-            genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            genScript += (
+                "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            )
 
         genScript += "FDTD.SetCSX(CSX)\n"
         genScript += "\n"
@@ -1753,21 +2375,33 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         genScript += self.getExcitationScriptLines(definitionsOnly=True)
 
         # Write material definitions.
-        genScript += self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir, generateObjects=True)
+        genScript += self.getMaterialDefinitionsScriptLines(
+            itemsByClassName.get("MaterialSettingsItem", None),
+            outputDir,
+            generateObjects=True,
+        )
 
         # Write grid definitions.
-        genScript += self.getOrderedGridDefinitionsScriptLines(itemsByClassName.get("GridSettingsItem", None))
+        genScript += self.getOrderedGridDefinitionsScriptLines(
+            itemsByClassName.get("GridSettingsItem", None)
+        )
 
         # Write port definitions:
         #    - must be after gridlines definitions
         #    - must be before nf2ff
-        genScript += self.getPortDefinitionsScriptLines(itemsByClassName.get("PortSettingsItem", None))
+        genScript += self.getPortDefinitionsScriptLines(
+            itemsByClassName.get("PortSettingsItem", None)
+        )
 
         # Write probes definitions
-        genScript += self.getProbeDefinitionsScriptLines(itemsByClassName.get("ProbeSettingsItem", None))
+        genScript += self.getProbeDefinitionsScriptLines(
+            itemsByClassName.get("ProbeSettingsItem", None)
+        )
 
         # Write NF2FF probe grid definitions. THIS NEEDS TO BE DONE TO FILL self.internalNF2FFIndexNamesList[] with keys and indexes, key = "[nf2ff probe category name] - [object label]"
-        genScript += self.getNF2FFDefinitionsScriptLines(itemsByClassName.get("ProbeSettingsItem", None))
+        genScript += self.getNF2FFDefinitionsScriptLines(
+            itemsByClassName.get("ProbeSettingsItem", None)
+        )
 
         # Write scriptlines which removes gridline too close, must be enabled in GUI, it's checking checkbox inside
         genScript += self.getMinimalGridlineSpacingScriptLines()
@@ -1775,9 +2409,13 @@ class PythonScriptLinesGenerator2(CommonScriptLinesGenerator):
         #
         #   Current NF2FF box index
         #
-        print(f"writeNf2ffButtonClicked() > generate script, getting nf2ff box index for '{nf2ffBoxName}'")
-        currentNF2FFBoxIndex = self.internalNF2FFIndexNamesList[nf2ffBoxName.replace(" ", "_")]
-        currentNF2FFInputPortIndex = self.internalPortIndexNamesList[nf2ffBoxInputPortName]
+        print(
+            f"writeNf2ffButtonClicked() > generate script, getting nf2ff box index for '{nf2ffBoxName}'"
+        )
+        self.internalNF2FFIndexNamesList[nf2ffBoxName.replace(" ", "_")]
+        currentNF2FFInputPortIndex = self.internalPortIndexNamesList[
+            nf2ffBoxInputPortName
+        ]
 
         thetaStart = str(self.form.portNf2ffThetaStart.value())
         thetaStop = str(self.form.portNf2ffThetaStop.value())
@@ -1909,16 +2547,18 @@ generatorFunc_DumpFF2VTK(E_far_normalized, nf2ff.theta, nf2ff.phi, os.path.join(
         #
         currDir, nameBase = self.getCurrDir()
 
-        if (outputDir is None):
+        if outputDir is None:
             outputDir = currDur
         self.createOuputDir(outputDir)
         fileName = f"{outputDir}/{nameBase}_draw_NF2FF.py"
 
-        f = open(fileName, "w", encoding='utf-8')
+        f = open(fileName, "w", encoding="utf-8")
         f.write(genScript)
         f.close()
-        print('Script to display far field written into: ' + fileName)
-        self.guiHelpers.displayMessage('Script to display far field written into: ' + fileName, forceModal=False)
+        print("Script to display far field written into: " + fileName)
+        self.guiHelpers.displayMessage(
+            "Script to display far field written into: " + fileName, forceModal=False
+        )
 
     def drawS11ButtonClicked(self, outputDir=None, portName=""):
         genScript = ""
@@ -1933,15 +2573,23 @@ generatorFunc_DumpFF2VTK(E_far_normalized, nf2ff.theta, nf2ff.phi, os.path.join(
         genScript += "\n"
 
         genScript += "## setup FDTD parameter & excitation function\n"
-        genScript += "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
-        genScript += "min_decrement = " + str(self.form.simParamsMinDecrement.value()) + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        genScript += (
+            "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
+        )
+        genScript += (
+            "min_decrement = "
+            + str(self.form.simParamsMinDecrement.value())
+            + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        )
 
-        if (self.getModelCoordsType() == "cylindrical"):
+        if self.getModelCoordsType() == "cylindrical":
             genScript += "CSX = CSXCAD.ContinuousStructure(CoordSystem=1)\n"
             genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, CoordSystem=1)\n"
         else:
             genScript += "CSX = CSXCAD.ContinuousStructure()\n"
-            genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            genScript += (
+                "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            )
 
         genScript += "FDTD.SetCSX(CSX)\n"
         genScript += "\n"
@@ -1956,17 +2604,24 @@ generatorFunc_DumpFF2VTK(E_far_normalized, nf2ff.theta, nf2ff.phi, os.path.join(
         genScript += self.getExcitationScriptLines(definitionsOnly=True)
 
         # Write material definitions.
-        genScript += self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None),
-                                                            outputDir, generateObjects=True)
+        genScript += self.getMaterialDefinitionsScriptLines(
+            itemsByClassName.get("MaterialSettingsItem", None),
+            outputDir,
+            generateObjects=True,
+        )
 
         # Write grid definitions.
-        genScript += self.getOrderedGridDefinitionsScriptLines(itemsByClassName.get("GridSettingsItem", None))
+        genScript += self.getOrderedGridDefinitionsScriptLines(
+            itemsByClassName.get("GridSettingsItem", None)
+        )
 
         # Write scriptlines which removes gridline too close, must be enabled in GUI, it's checking checkbox inside
         genScript += self.getMinimalGridlineSpacingScriptLines()
 
         # Write port definitions.
-        genScript += self.getPortDefinitionsScriptLines(itemsByClassName.get("PortSettingsItem", None))
+        genScript += self.getPortDefinitionsScriptLines(
+            itemsByClassName.get("PortSettingsItem", None)
+        )
 
         genScript += f"""## postprocessing & do the plots
 freq = np.linspace(max(1e6,f0-fc), f0+fc, 501)
@@ -2019,18 +2674,23 @@ with open(filename, 'w', newline='') as csvfile:
         #
         currDir, nameBase = self.getCurrDir()
 
-        if (outputDir is None):
+        if outputDir is None:
             outputDir = currDir
         self.createOuputDir(outputDir)
         fileName = f"{outputDir}/{nameBase}_draw_S11.py"
 
-        f = open(fileName, "w", encoding='utf-8')
+        f = open(fileName, "w", encoding="utf-8")
         f.write(genScript)
         f.close()
-        print('Draw result from simulation file written into: ' + fileName)
-        self.guiHelpers.displayMessage('Draw result from simulation file written into: ' + fileName, forceModal=False)
+        print("Draw result from simulation file written into: " + fileName)
+        self.guiHelpers.displayMessage(
+            "Draw result from simulation file written into: " + fileName,
+            forceModal=False,
+        )
 
-    def drawS21ButtonClicked(self, outputDir=None, sourcePortName="", targetPortName=""):
+    def drawS21ButtonClicked(
+        self, outputDir=None, sourcePortName="", targetPortName=""
+    ):
         genScript = ""
         genScript += "# Plot S11, S21 parameters from OpenEMS results.\n"
         genScript += "#\n"
@@ -2043,15 +2703,23 @@ with open(filename, 'w', newline='') as csvfile:
         genScript += "\n"
 
         genScript += "## setup FDTD parameter & excitation function\n"
-        genScript += "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
-        genScript += "min_decrement = " + str(self.form.simParamsMinDecrement.value()) + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        genScript += (
+            "max_timesteps = " + str(self.form.simParamsMaxTimesteps.value()) + "\n"
+        )
+        genScript += (
+            "min_decrement = "
+            + str(self.form.simParamsMinDecrement.value())
+            + " # 10*log10(min_decrement) dB  (i.e. 1E-5 means -50 dB)\n"
+        )
 
-        if (self.getModelCoordsType() == "cylindrical"):
+        if self.getModelCoordsType() == "cylindrical":
             genScript += "CSX = CSXCAD.ContinuousStructure(CoordSystem=1)\n"
             genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement, CoordSystem=1)\n"
         else:
             genScript += "CSX = CSXCAD.ContinuousStructure()\n"
-            genScript += "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            genScript += (
+                "FDTD = openEMS(NrTS=max_timesteps, EndCriteria=min_decrement)\n"
+            )
 
         genScript += "FDTD.SetCSX(CSX)\n"
         genScript += "\n"
@@ -2066,70 +2734,82 @@ with open(filename, 'w', newline='') as csvfile:
         genScript += self.getExcitationScriptLines(definitionsOnly=True)
 
         # Write material definitions.
-        genScript += self.getMaterialDefinitionsScriptLines(itemsByClassName.get("MaterialSettingsItem", None), outputDir, generateObjects=True)
+        genScript += self.getMaterialDefinitionsScriptLines(
+            itemsByClassName.get("MaterialSettingsItem", None),
+            outputDir,
+            generateObjects=True,
+        )
 
         # Write grid definitions.
-        genScript += self.getOrderedGridDefinitionsScriptLines(itemsByClassName.get("GridSettingsItem", None))
+        genScript += self.getOrderedGridDefinitionsScriptLines(
+            itemsByClassName.get("GridSettingsItem", None)
+        )
 
         # Write scriptlines which removes gridline too close, must be enabled in GUI, it's checking checkbox inside
         genScript += self.getMinimalGridlineSpacingScriptLines()
 
         # Write port definitions.
-        genScript += self.getPortDefinitionsScriptLines(itemsByClassName.get("PortSettingsItem", None))
+        genScript += self.getPortDefinitionsScriptLines(
+            itemsByClassName.get("PortSettingsItem", None)
+        )
 
         # Post-processing and plot generation.
-        genScript += '\n'.join([
-            "#######################################################################################################################################",
-            "# POST-PROCESSING AND PLOT GENERATION",
-            "#######################################################################################################################################",
-            "",
-            "freq = np.linspace(max(1e6, f0 - fc), f0 + fc, 501)",
-            f"port[{self.internalPortIndexNamesList[sourcePortName]}].CalcPort(Sim_Path, freq)",
-            f"port[{self.internalPortIndexNamesList[targetPortName]}].CalcPort(Sim_Path, freq)",
-            "",
-            f"s11 = port[{self.internalPortIndexNamesList[sourcePortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
-            f"s21 = port[{self.internalPortIndexNamesList[targetPortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
-            "",
-            "s11_dB = 20*log10(abs(s11))",
-            "s21_dB = 20*log10(abs(s21))",
-            "",
-            "plot(freq/1e9,s11_dB,'k-', linewidth=2)",
-            "grid()",
-            "plot(freq/1e9,s21_dB,'r--', linewidth=2)",
-            "legend(('$S_{11}$','$S_{21}$'))",
-            f"title('S21-Parameter\\n{sourcePortName} $\\\\rightarrow$ {targetPortName}', fontsize=12)",
-            "ylabel('S21(dB)', fontsize=12)",
-            "xlabel('frequency (GHz)', fontsize=12)",
-            "ylim([-40, 2])",
-            "show()",
-            "",
-            "#######################################################################################################################################",
-            "# SAVE PLOT DATA",
-            "#######################################################################################################################################",
-            "",
-            "#",
-            "#   Write S11, real and imag Z_in into CSV file separated by ','",
-            "#",
-            "filename = 'openEMS_simulation_s21_dB.csv'",
-            "",
-            "with open(filename, 'w', newline='') as csvfile:",
-            "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)",
-            "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])",
-            "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it",
-            ""
-        ])
+        genScript += "\n".join(
+            [
+                "#######################################################################################################################################",
+                "# POST-PROCESSING AND PLOT GENERATION",
+                "#######################################################################################################################################",
+                "",
+                "freq = np.linspace(max(1e6, f0 - fc), f0 + fc, 501)",
+                f"port[{self.internalPortIndexNamesList[sourcePortName]}].CalcPort(Sim_Path, freq)",
+                f"port[{self.internalPortIndexNamesList[targetPortName]}].CalcPort(Sim_Path, freq)",
+                "",
+                f"s11 = port[{self.internalPortIndexNamesList[sourcePortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
+                f"s21 = port[{self.internalPortIndexNamesList[targetPortName]}].uf_ref / port[{self.internalPortIndexNamesList[sourcePortName]}].uf_inc",
+                "",
+                "s11_dB = 20*log10(abs(s11))",
+                "s21_dB = 20*log10(abs(s21))",
+                "",
+                "plot(freq/1e9,s11_dB,'k-', linewidth=2)",
+                "grid()",
+                "plot(freq/1e9,s21_dB,'r--', linewidth=2)",
+                "legend(('$S_{11}$','$S_{21}$'))",
+                f"title('S21-Parameter\\n{sourcePortName} $\\\\rightarrow$ {targetPortName}', fontsize=12)",
+                "ylabel('S21(dB)', fontsize=12)",
+                "xlabel('frequency (GHz)', fontsize=12)",
+                "ylim([-40, 2])",
+                "show()",
+                "",
+                "#######################################################################################################################################",
+                "# SAVE PLOT DATA",
+                "#######################################################################################################################################",
+                "",
+                "#",
+                "#   Write S11, real and imag Z_in into CSV file separated by ','",
+                "#",
+                "filename = 'openEMS_simulation_s21_dB.csv'",
+                "",
+                "with open(filename, 'w', newline='') as csvfile:",
+                "\twriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)",
+                "\twriter.writerow(['freq (Hz)', 's11 (dB)', 's21 (dB)'])",
+                "\twriter.writerows(np.array([freq, s11_dB, s21_dB]).T)  # creates array with 1st row frequencies, 2nd row S11 and transpose it",
+                "",
+            ]
+        )
 
         # Write OpenEMS Script file into current dir.
 
         currDir, nameBase = self.getCurrDir()
 
-        if (outputDir is None):
+        if outputDir is None:
             outputDir = currDir
         self.createOuputDir(outputDir)
         fileName = f"{outputDir}/{nameBase}_draw_S21.py"
 
-        f = open(fileName, "w", encoding='utf-8')
+        f = open(fileName, "w", encoding="utf-8")
         f.write(genScript)
         f.close()
-        print('Draw result from simulation file written to: ' + fileName)
-        self.guiHelpers.displayMessage('Draw result from simulation file written to: ' + fileName, forceModal=False)
+        print("Draw result from simulation file written to: " + fileName)
+        self.guiHelpers.displayMessage(
+            "Draw result from simulation file written to: " + fileName, forceModal=False
+        )

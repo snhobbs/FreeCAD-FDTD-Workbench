@@ -5,8 +5,8 @@ try:
     import PySide.QtWidgets
     from PySide import QtGui, QtCore, QtWidgets, QtUiTools
 except ImportError:
-    import PySide6.QtWidgets
-    from PySide6 import QtGui, QtCore, QtWidgets, QtUiTools
+    from PySide6 import QtGui, QtCore, QtUiTools
+
 
 class CadInterface:
     def __init__(self, APP_DIR=""):
@@ -17,26 +17,29 @@ class CadInterface:
             import FreeCAD
             import FreeCADGui
             import Draft
+
             self.type = "FreeCAD"
         except ImportError:
             print("No FreeCAD interface available.")
 
         if self.type == "None":
-            print("No available FreeCAD interface found using default dummy one, PROGRAM WILL RUN DOING NOTHING.")
+            print(
+                "No available FreeCAD interface found using default dummy one, PROGRAM WILL RUN DOING NOTHING."
+            )
         return
 
     def getIconByCategory(self, categoryName):
-        if 'Material' in categoryName:
+        if "Material" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "material.svg")
-        elif 'Excitation' in categoryName:
+        elif "Excitation" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "excitation.svg")
-        elif 'Grid' in categoryName:
+        elif "Grid" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "grid.svg")
-        elif 'LumpedPart' in categoryName:
+        elif "LumpedPart" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "lumpedpart.svg")
-        elif 'Probe' in categoryName:
+        elif "Probe" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "probe.svg")
-        elif 'Port' in categoryName:
+        elif "Port" in categoryName:
             iconPath = os.path.join(self.APP_DIR, "img", "port.svg")
         else:
             iconPath = os.path.join(self.APP_DIR, "img", "error.svg")
@@ -49,7 +52,10 @@ class CadInterface:
         child_count = root.childCount()
         itemList = []
         for i in range(child_count):
-            print('Copying tree widget item ' + root.child(i).data(0, QtCore.Qt.UserRole).getName())
+            print(
+                "Copying tree widget item "
+                + root.child(i).data(0, QtCore.Qt.UserRole).getName()
+            )
             item = root.child(i)
             itemList.append(item.data(0, QtCore.Qt.UserRole))
         return itemList
@@ -67,9 +73,9 @@ class CadInterface:
         objToExport = []
 
         for obj in currentObjects:
-            if (len(filterStr) > 0 and re.search(filterStr, obj.Label, re.IGNORECASE)):
+            if len(filterStr) > 0 and re.search(filterStr, obj.Label, re.IGNORECASE):
                 objToExport.append(obj)
-            elif (len(filterStr) == 0):
+            elif len(filterStr) == 0:
                 objToExport.append(obj)
 
         return objToExport
@@ -96,7 +102,9 @@ class CadInterface:
         return None
 
     def getCurrDocumentFileName(self):
-        print(f"{__file__} > getCurrDocumentFileName() > {os.path.join(self.APP_DIR, __file__)}")
+        print(
+            f"{__file__} > getCurrDocumentFileName() > {os.path.join(self.APP_DIR, __file__)}"
+        )
         return os.path.join(self.APP_DIR, __file__)
 
     def getObjectsByLabel(self, objLabel):
@@ -126,7 +134,7 @@ class CadInterface:
         print(f"{__file__} > clearSelection()")
         return None
 
-    def Vector(self,x,y,z):
+    def Vector(self, x, y, z):
         print(f"{__file__} > Vector()")
         return None
 
@@ -137,6 +145,7 @@ class CadInterface:
     def exportSTL(self, partToExport, exportFileName):
         print(f"{__file__} > exportSTL()")
         return None
+
 
 if __name__ == "__main__":
     cadInterface = CadInterface()
